@@ -1,0 +1,2832 @@
+---
+title: "Comparación entre ASP, ASO y Controles"
+author: "Oriol Caro"
+date: "`r format(Sys.Date(),'%e de %B, %Y')`"
+output:
+  pdf_document:
+    keep_tex: yes
+    toc: yes
+  html_document: default
+header-includes: \usepackage[spanish]{babel}
+subtitle: Comparación de grupos por sociodemografía, perfil de personalidad y psicopatía.
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r packages, message=FALSE, echo=FALSE, warning=FALSE}
+# módulos utilizados
+if (!require(car)) install.packages("car")
+if (!require(haven)) install.packages("haven")
+if (!require(readxl)) install.packages("readxl")
+if (!require(dplyr)) install.packages("dplyr")
+if (!require(ggplot2)) install.packages("ggplot2")
+if (!require(gplots)) install.packages("gplots")
+if (!require(knitr)) install.packages("knitr")
+if (!require(nortest)) install.packages("nortest")
+if (!require(tidyverse)) install.packages("tidyverse")
+if (!require(labelled)) install.packages("labelled")
+if (!require(rpart)) install.packages("rpart")
+if (!require(rpart.plot)) install.packages("rpart.plot")
+if (!require(leaps)) install.packages("leaps")
+if (!require(lmtest)) install.packages("lmtest")
+if (!require(nlme)) install.packages("nlme")
+if (!require(FactoMineR)) install.packages("FactoMineR")
+if (!require(factoextra)) install.packages("factoextra")
+
+# definimos la semilla para facilitar replicación
+set.seed(3579)
+```
+
+El siguiente documento presenta el análisis de datos de TFM que tiene bajo título: "ADICCIÓN AL SEXO Y ADICCIÓN AL SEXO ONLINE (CIBERSEXO). Comparación de aspectos sociodemográficos, características de
+personalidad y de psicopatología.", por **Oriol Caro**.
+
+# **Carga de datos.**
+
+```{r borrar, message=FALSE, echo=FALSE, warning=FALSE}
+# Indicamos carpeta de trabajo
+setwd("C:/Users/Oriol/Google Drive/TFM_UOC")
+# creamos una variable donde se indicarán los datos
+param <- c()
+param$data <- c("sex_add_vs_sex_online.sav")
+param$variables <- c("variables.xlsx")
+param$controles <- c()
+```
+
+```{r carga_datos, echo=TRUE}
+# Cargando variables
+variables <- read_excel("C:/Users/Oriol/Google Drive/TFM_UOC/variables.xlsx")
+
+# Cargando datos pacientes
+pacientes <- read_sav("C:/Users/Oriol/Google Drive/TFM_UOC/sex_add_vs_sex_online.sav")
+
+# cagando datos controles
+# NO DISPONIBLES
+```
+
+# **Métodos.**
+
+Se realizarán dos comparaciones entre tres grupos: pacientes adictos al sexo presencial (*ASP*), pacientes adictos al sexo online o cibersexo (*ASO*) y controles. Las comparaciones a realizar son ASP contra ASO y adictos al sexo (*AS*) (los dos grupos, ASP y ASP) contra los controles. Partiremos desde la idea de que los datos son independientes.
+
+Cada una de las comparaciones se realizarán desde tres áreas diferenciadas: sociodemografía, perfiles de personalidad y psicopatía. Para más detalles sobre el origen de los datos, criterios de inclusión y otros aspectos, consultar la memoria.
+
+Los datos incorporan `r nrow(variables[variables$Tipo_Variable == "sociodemografia",])` variables de sociodemografía, `r nrow(variables[variables$Tipo_Variable == "personalidad",])` variables que definen la personalidad y `r nrow(variables[variables$Tipo_Variable == "psicopatologia",])`, variables correspondientes a parámetros que valoran la psicopatología.
+
+Entre estas `r nrow(variables[!variables$Tipo_Variable == "ID",])` variables, nos podemos encontrar básicamente con dos tipos de variables: calitativas nominales (dicotómicas y politómicas) y cuantitativas discretas. Realizaremos las comparaciones según la naturaleza de estas variables.
+
+Según si son variables *cualitativas nominales*, sin importar si son dicotómicas o politómicas:
+
+  - Generándose una tabla de contingencia con las frecuencias, se aplica un *$\chi^2$ de Pearson* (prueba de hipótesis que compara la distribución observada de los datos con una distribución esperada de los datos, (*1*)) cuando tenemos un tamaño muestral amplio, en cambio, cuando el tamaño muestral o número de eventos es pequeño, se utilizará un *test exacto de Fisher* (*2*). No obstante, se ha revisado bibliografía en que un *$\chi^2$ de Pearson* con una técnica de remuestreo o *bootstrap* puede ser tan válida como un *test exacto de Fisher*, ya que esta última es considerada por algunos autores como demasiado conservadora (*7*).
+  
+Según si son variables *cuantitativas discretas*, deberemos tener en cuenta estos puntos:
+
+  - Distribución de los datos. Para valorar la distribución de los datos, se realizará dos gráficos, uno de distribución y otro cuartil-cuartil (qqplot), y un *test Shaphiro-Will* (contraste de ajuste tiene como objetivo comprobar si con base en la información suministrada por una muestra se puede aceptar que la población de origen sigue una determinada distribución de probabilidad, en nuestro caso, la distribución normal (*3*)) o *test de Anderson-Darling* (una modificación del test Kolmogorov-Smirnov, indicado para cuando hay muchos datos duplicados (*4*)), según si los datos no tienen muchas duplicaciones o sí, respectivamente. En el caso de que haya una distribución de datos normal, se recurrirá a un *test t-student* o *test de Welch-t* (en función de la variabilidad que presenten los datos, tema tratado en el siguiente punto), en el caso que no haya una distribución normal de los datos, se recurrirá a un *test U-Mann-Witney* o un *test t-student* o *test de Welch-t* con una estrategia de remuestreo previa (*5*).
+  
+  - La variabilidad de la población es desconocida. Por este motivo, debemos tomar como asunción si la varianza es igual o diferente entre los grupos que se comparan. Para tomar esta asunción, realizaremos un *test F-snedecor*, en que se testea la igualdad de las varianzas. En el caso que las varianzas sean iguales, y siempre que los datos sigan una distribución normal, realizaremos un *test t-student*. Por contra, en el caso que no haya una variabilidad igual entre grupos, y siempre que haya una distribución de datos normal, se realizará un *test Welch-t* o t-test para varianzas no equivalentes. Finalmente, si no existe una distribución normal, independientemente de la clase de distribución de los dtos, realizaremos un *test U-Mann_Witney* (*6*).
+
+  - Ciertas variables tienen datos duplicados o valores que se repiten. Esto afecta en si de dos formas. Una es a la distribución, la cual ya no es normal, y dos, al test de contraste U de Mann-Whitnet. Esto se debe a que el *test U de Mann-Witney* se basa en rangos, con que la existencia de datos repetidos o duplicados afecta en el cálculo de p-valor (*6*), en este sentido se indicará debidamente ya que el cálculo del valor-p no es exacto.
+  
+En los modelos de regresión se ha usado el cálculo de mínimos cuadrados ordinarios. Se ha evaluado los datos de los modelos. Si el modelo no resulta satisfactorio, se ha reducido el número de variables con un método AIC, seleccionando los de menor valor y se ha analizado la existencia de autocorrelaciones. En caso de detectarlas, se ha optado por el cáculo de la regresión con los mínimos cuadrados generalizados, el cual es una técnica para estimar parámetros desconocidos en una regresión lineal cuando existe cierto grado de autocorrelación entre variables que forman parte de ese modelo.
+
+Para más detalles, en la memoria se especifica con mayor detalle. Definidos los métodos, comenzamos a realizar el análisis de datos.
+
+# **Comparación entre los grupos ASP vs ASO.**
+
+## **ASP vs ASO en sociodemografía.**
+
+Vamos a mirar que variables tenemos que analizar.
+
+```{r variables_analizar_ASPvsASO_sociodemografia}
+# datos: variables que definen sociodependencia
+sociodemografia_variables <- variables %>% filter(Tipo_Variable == "sociodemografia") %>%
+  select(Variable, Descripcion)
+print.data.frame(sociodemografia_variables)
+```
+
+Se puede apreciar que existen `r nrow(sociodemografia_variables)` variables que definen el estado social-demográfico de los pacientes. Realizaremos comparaciones entre los grupos de pacientes (ASO vs ASP) para detectar diferencias.
+
+### **Variable `r sociodemografia_variables[1, 1]`.** 
+
+Variable que define el género de los pacientes.
+
+Vamos a ver si existen diferencias en el género de los pacientes. Primero veamos con una tabla de contingencia los datos.
+
+```{r PASEX_tabla}
+# generamos una tabla de contingencia con los datos
+(PASEX_pacientes <- pacientes %>% 
+  select(GRUPO, PASEX) %>% 
+  group_by(GRUPO, PASEX) %>% 
+  summarise(frecuencia = n()))
+```
+
+Como se puede observar en la tabla, existen `r PASEX_pacientes[1, 3]` hombres en el grupo ASP y `r PASEX_pacientes[2, 3]` hombre en el grupo ASO, lo que significa que hay el 100% de hombres en ambos grupos. **Podemos afirmar que género, no existen diferencias**.
+
+### **Variable `r sociodemografia_variables[2, 1]`.** 
+
+Variable que define la edad de los pacientes.
+
+A continuación, veremos si existen diferencias de edad entre grupos de pacientes. Primero, veamos una descripción de los datos y su distribución.
+
+```{r PAEDA_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(PAEDA_pacientes <- pacientes %>% 
+  select(GRUPO, PAEDA) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, PAEDA)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, PAEDA)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, PAEDA)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = PAEDA, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos de la edad")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$PAEDA, main = "qqplot ASP"); qqline(qqplot_ASP$PAEDA)
+qqnorm(qqplot_ASO$PAEDA, main = "qqplot ASO"); qqline(qqplot_ASO$PAEDA)
+
+# Como no existen muchos datos duplicados, podemos usar un Shapiro-Wills
+shapiro.test(qqplot_ASP$PAEDA); shapiro.test(qqplot_ASO$PAEDA)
+```
+
+Podemos observar que las medias de edad son similares, con `r round(PAEDA_pacientes[1, 3], 1)` años para ASP y `r round(PAEDA_pacientes[2, 3], 1)` para ASO. Por otro lado, se observa que existe una distribución de los datos normal, ya que los valores p en los test Shapiro-Wills, son superiores al 0.0, por lo que no podemos rechazar la hipótesis nula. Una distribución normal y la distribución de los datos son distribuciones iguales.
+
+A continucación vamos a realizar un contraste de hipótesis para ver si existen diferencias. Para elegir el test apropiado primero debemos primero conocer las desviaciones son iguales, ya que sabemos que siguen una distribución normal los datos.
+
+```{r PAEDA_contraste_varianza}
+# veamos las varianzas de los grupos
+aggregate(PAEDA~GRUPO, dataplot, FUN = var)
+
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+Como se puede apreciar, obtenemos con el test F de Snedecor, un valor p `r fsnedecor$p.value`, que es superior al 0.05, por lo que no hay diferencias en la varianza entre grupo ya que no se puede rechazar la hipótesis nula.
+
+Así, con una distribución normal y un varianza igual, emplearemos un test t-student para contrastar diferencias entre las medias.
+
+```{r PAEDA_contraste_medias}
+# veamos las medias de los grupos
+aggregate(PAEDA~GRUPO, dataplot, FUN = mean)
+# test t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+Vemos que con un p-valor de `r round(resultado$p.value, 3)`, superior al 0.05, no podemos rechazar hipótesis nula, que define que ambas medias son iguales. **No existen diferencias de edad entre ASP y ASO.**
+
+### **Variable `r sociodemografia_variables[3, 1]`.**
+
+Variableque define la orientación sexual de los pacientes.
+
+Entre los pacientes existen tres tipos de orientaciones sexuales (heterosexual, homosexual y bisexual). Vamos a ver si existen diferencias entre los dos grupos de pacientes en su orientación sexual. 
+
+```{r ORSEX_tabla_contingencia}
+# seleccion de datos
+ORSEX_ASPvsASO <- pacientes %>% select(GRUPO, ORSEX)
+# tabla de contingencia
+data <- table(ORSEX_ASPvsASO$GRUPO, ORSEX_ASPvsASO$ORSEX)
+row.names(data) <- c("ASP", "ASO")
+colnames(data) <- c("heterosexual", "homosexual", "bisexual")
+# mostramos tabla
+print(data)
+```
+
+Se observa una mayoría heterosexual en ambos grupos, una mayor presencia de homosexualidad entre los ASP y un número similar de bisexualidad en ambos grupos, aunque se ha de mencionar que el número es pequeño y estas diferencias podrían ser mayores con una muestra mayor.
+
+Ante el tamaño muestral o número de eventos que muestra un grupo, se utilizará un test exacto de Fisher. No obstante, se mostrará también un resultado de $\chi^2$, motivo que está explicado en métodos.
+
+```{r ORSEX_test_contraste}
+# test de Fisher.
+(resultado <- fisher.test(data))
+# chi-cuadrado con bootstrap
+chisq.test(data, simulate.p.value = TRUE)
+```
+
+Se puede comprobar que el valor-p del test exacto de Fisher es de `r round(resultado$p.value, 3)`, inferior al 0.05, por lo que hay suficiente evidencia para rechazar la hipótesis nula. En el test $\chi^2$, obtenemos un resultado muy similar. Podemos afirmar que **existen diferencias entre los dos grupos de pacientes segñun su orientación sexual**.
+
+### **Variable `r sociodemografia_variables[5, 1]`.**
+
+Variable que define el estado civil de los pacientes.
+
+En la variable `r sociodemografia_variables[5, 1]`, diferenciamos hasta 5 estados diferentes, enumerados del 0 al 4, siendo en orden: soltero, casada/pareja estable, separado/divorciado, viudo y otros. Observemos los datos con una tabla de contingencia.
+
+```{r PAECC_tabla_contingencia}
+# seleccion de datos
+PAECC_ASPvsASO <- pacientes %>% select(GRUPO, PAECC)
+# tabla de contingencia
+data <- table(PAECC_ASPvsASO$GRUPO, PAECC_ASPvsASO$PAECC)
+row.names(data) <- c("ASP", "ASO")
+colnames(data) <- c("soltero", "casado", "separado", "viudo")
+# mostramos tabla
+print(data)
+```
+
+Se puede observar que la mayoría, con un `r round(data[1, 2]/nrow(pacientes[pacientes$GRUPO == "1",])*100, 2)`% por ASP y un `r round(data[2, 2]/nrow(pacientes[pacientes$GRUPO == "2",])*100, 2)`% de los ASO, están casados. Se observa que hay mayor número de solteros entre los ASP (`r round(data[1, 1]/nrow(pacientes[pacientes$GRUPO == "1",])*100, 2)`% frente al `r round(data[2, 1]/nrow(pacientes[pacientes$GRUPO == "1",])*100, 2)`%). No se observan grandes diferencias entre separados y viudos en ambos grupos.
+
+Debido a bajo número de eventos, realizaremos un test exacto de Fisher, junto con un $\chi^2$ con *bootstrap* para ver si estas diferencias son significativas.
+
+```{r PAECC_test_contraste}
+# test exacto de Fisher
+(resultado <- fisher.test(data))
+# chi-cuadrado con bootstrap
+chisq.test(data, simulate.p.value = TRUE)
+```
+
+Con un valor-p de `r round(resultado$p.value, 3)`, superior al 0.05, no podemos rechazar la hipótesis nula. **No existen diferencias significativas**. 
+
+### **Variable `r sociodemografia_variables[6, 1]`.**
+
+Variable que define número de hijos.
+
+Vamos a ver si existen diferencias con el número de hijos que tiene cada uno de los grupos de pacientes. No obstante, vamos analizar dos hechos, uno es tener hijos o no, y otro la media de hijos.
+
+Comenzamos mirando, con una tabla de contingencia, quienes han tenido hijos o no por cada grupo.
+
+```{r PAHIJ_padres_tabla_contingencia}
+# selección de los datos
+PAHIJ_ASPvsASO <- pacientes %>% 
+  mutate(Padre = if_else(PAHIJ > 0, "si", "no")) %>% 
+  select(GRUPO, PAHIJ, Padre)
+
+# tabla de contingencia
+data <- table(PAHIJ_ASPvsASO$GRUPO, PAHIJ_ASPvsASO$Padre)
+row.names(data) <- c("ASP", "ASO")
+colnames(data) <- c("si", "no")
+
+# mostramos tabla
+print(data)
+```
+
+Podemos ver como existen más pacientes con hijos entre ASP que entre ASO. Vamos a hacer un $\chi^2$ para ver si existen diferencias estadísticamente significativas.
+
+```{r PAHIJ_padre_test_contraste}
+# chi-cuadrado
+(resultado <- chisq.test(data))
+```
+
+Con un p-valor de `r round(resultado$p.value, 3)`, superior al 0.05, no podemos rechazar la hipótesis nula. **No existen diferencias entre los grupos en tener o no hijos.**
+
+Ahora veamos por la media de hijos. Primero echemos un vistado a los datos.
+
+```{r PAHIJ_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(PAHIJ_pacientes <- pacientes %>% 
+  select(GRUPO, PAHIJ) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, PAHIJ)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, PAHIJ)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, PAHIJ)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = PAHIJ, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por el número de hijos")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$PAHIJ, main = "qqplot ASP"); qqline(qqplot_ASP$PAHIJ)
+qqnorm(qqplot_ASO$PAHIJ, main = "qqplot ASO"); qqline(qqplot_ASO$PAHIJ)
+
+# Existen muchos números duplicados,
+# por lo que ejecutaremos
+# un test de Anderson-Darling **EXPLICAR EN MÉTODOS**
+ad.test(qqplot_ASP$PAHIJ); ad.test(qqplot_ASO$PAHIJ)
+```
+
+Se puede observar que el grupo ASO tiene una media ligeramente superior de hijos que ASP con un `r PAHIJ_pacientes[2, 3]` y un `r PAHIJ_pacientes[1, 3]` respectivamente. La distribución de los datos no es normal.
+
+Vemos si estas diferencias son significativas con un test de U-Mann-Witney, pero para que sea válida, se requiere que las varianzas sean iguales.
+
+```{r PAHIJ_hijos_test_contraste_varianza}
+# veamos las varianzas de los grupos
+aggregate(PAHIJ~GRUPO, dataplot, FUN = var)
+
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+```
+
+Las varianzas son iguales, por lo que podríamos realizar el test U de Mann-Whitney. No obstante, tenemos múltiples datos duplicados, por lo que el resultado no es fiable.
+
+```{r PAHIJ_hijos_test_contraste_medias}
+# veamos las medias de los grupos
+aggregate(PAHIJ~GRUPO, dataplot, FUN = mean)
+
+# número de repetidos
+table(as.factor(unlist(dataplot[dataplot$GRUPO == "1", 2])))
+
+# test U de Mann-Whitney para testear medias
+# que se encuentra integrada en 
+# wilcox.test() cuando se indica que no están pareadas
+(resultado <- wilcox.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2]), 
+         alternative = "two.sided", paired = FALSE, exact = FALSE))
+
+```
+
+Con un `r round(resultado$p.value, 3)`, muy superior al 0.05, no se puede rechazar la hipótesis nula, por lo que **no existen diferencias entre las medias de hijos de cada grupo de pacientes**. No obstante, conviene tener en cuenta que existe gran número de datos que están duplicados, por lo que puede afectar al resultado ya que no es posible calcular el valor-p de forma exacta.
+
+### **Variable `r sociodemografia_variables[7, 1]`.**
+
+Variable que define si tienen trabajo o no los pacientes.
+
+Estamos ante una variable categórica dicótomica. Veamos, con una tabla de contingencia lo datos.
+
+```{r PATRT_tabla_contingencia}
+# selección de los datos
+PATRT_ASPvsASO <- pacientes %>%  
+  select(GRUPO, PATRT)
+
+# tabla de contingencia
+data <- table(PATRT_ASPvsASO$GRUPO, PATRT_ASPvsASO$PATRT)
+row.names(data) <- c("ASP", "ASO")
+colnames(data) <- c("no", "si")
+
+# mostramos tabla
+print(data)
+```
+
+A priori, no se pueden apreciar grandes diferencias entre los grupos de pacientes. Vemos que un `r round(data[1, 1]/sum(data[1,])*100, 2)`% de ASP no tiene trabajo, frente al `r round(data[2, 1]/sum(data[2,])*100, 2)`% del grupo ASO en la misma situación. 
+
+Observemos si las diferencias son estadísticamente significativas a través de un test $/chi^2$.
+
+```{r PATRT_test_contraste}
+# chi-cuadrado test
+(resultado <- chisq.test(data))
+```
+
+Se puede observar en el test $\chi^2$, con un p-valor de `r round(resultado$p.value, 3)`, que las diferencias no son significativas. **No existen diferencias significativas en en si están empleados o no los pacientes.**
+
+### **Variable `r sociodemografia_variables[10, 1]`.**
+
+Variable que define cuantos años comenzó la conducta.
+
+Se entiende como comienzo de la conducta cuando esta no es aún problemática. Veamos un resumen de los datos, así como la distribución de los datos.
+
+```{r PAANOS_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(PAANOS_pacientes <- pacientes %>% 
+  select(GRUPO, PAANOS) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, PAANOS)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, PAANOS)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, PAANOS)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = PAANOS, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por el número de 
+          años del comienzo de la conducta")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$PAANOS, main = "qqplot ASP"); qqline(qqplot_ASP$PAANOS)
+qqnorm(qqplot_ASO$PAANOS, main = "qqplot ASO"); qqline(qqplot_ASO$PAANOS)
+
+# existe bastantes números de repetidos 
+table(as.factor(unlist(dataplot[dataplot$GRUPO == "1", 2])))
+
+# Con test de Anderson-Darling, veremos si existe normalidad
+ad.test(qqplot_ASP$PAANOS); ad.test(qqplot_ASO$PAANOS)
+```
+
+Se puede apreciar que el grupo ASP lleva más tiempo con la conducta con una media de `r PAANOS_pacientes[1, 3]` años por `r PAANOS_pacientes[2, 3]` años de ASO. No obstante, hay que tener en cuenta que hay una gran desviación en las medias, de `r PAANOS_pacientes[1, 5]` y `r PAANOS_pacientes[2, 5]` respectivamente.
+
+Al no existir distribución normal en los datos, vamos a realizar un test U de Mann-Witney, aunque primero valoraremos si cumple el requisito de igual varianzas.
+
+```{r PAANOS_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(PAANOS~GRUPO, dataplot, FUN = mean)
+
+# test U de Mann-Whitney para testear medias
+# que se encuentra integrada en 
+# wilcox.test() cuando se indica que no están pareadas
+(resultado <- wilcox.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2]), 
+         alternative = "two.sided", paired = FALSE, exact = FALSE))
+```
+
+Se puede apreciar que se cumple el requisito de igualdad de varianzas. No obstante, nos encontramos ante el mismo problema de duplicidad de datos. 
+
+Con un p-valor de `r round(resultado$p.value, 3)`, muy superior al 0.05, no podemos rechar la hipótesis nula, por lo que **no se aprecian diferencias con los años del inicio de la conducta.**
+
+### **Variable `r sociodemografia_variables[11, 1]`.**
+
+Variable que define cuantos meses hace que la conducto se volvió problemática.
+
+En este caso, hablamos de cuando la conducta ya impedía a los pacientes realizar una vida normal o les afectaba en su bienestar.
+
+```{r PAAPRO_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(PAAPRO_pacientes <- pacientes %>% 
+  select(GRUPO, PAAPRO) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, PAAPRO)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, PAAPRO)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, PAAPRO)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = PAAPRO, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por el número de 
+          meses en que la conducta es problemática")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$PAAPRO, main = "qqplot ASP"); qqline(qqplot_ASP$PAAPRO)
+qqnorm(qqplot_ASO$PAAPRO, main = "qqplot ASO"); qqline(qqplot_ASO$PAAPRO)
+
+# existe bastantes números de repetidos 
+table(as.factor(unlist(dataplot[dataplot$GRUPO == "1", 2])))
+
+# Con test de Anderson-Darling, veremos si existe normalidad
+ad.test(qqplot_ASP$PAAPRO); ad.test(qqplot_ASO$PAAPRO)
+```
+
+Se puede apreciar perfectamente en los gráficos que la distribución de los datos no es normal. Las medias presentan unas desviaciones bastantes pronunciadas, de `r PAAPRO_pacientes[1, 5]` para ASP y de `r PAAPRO_pacientes[2, 5]` para ASO, con unas medias `r PAAPRO_pacientes[1, 3]` meses y de `r PAAPRO_pacientes[2, 3]` meses para ASP y ASO, respectivamente.
+
+Al presentarse una distribuciones no normales, analizaremos sus varianzas y en el caso de ser iguales, testearemos si existen diferencias significativas con un test U de Mann-Whitney.
+
+```{r PAAPRO_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(PAAPRO~GRUPO, dataplot, FUN = mean)
+
+# test U de Mann-Whitney para testear medias
+# que se encuentra integrada en 
+# wilcox.test() cuando se indica que no están pareadas
+(resultado <- wilcox.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2]), 
+         alternative = "two.sided", paired = FALSE, exact = FALSE))
+```
+
+Vemos que no hay diferencias de varianzas. También detectamos datos duplicados que impiden calcular de forma efectiva el p-valor con U de Mann-Whitney. Tenemos con un p-valor de `r round(resultado$p.value, 3)`, que no existen diferencias significativas con el número de meses en que la conducta se hizo problemática entre los grupos de pacientes ASP y ASO.
+
+### **Grupo de variables de `r sociodemografia_variables[12, 1]` a `r sociodemografia_variables[19, 1]`.**
+
+Variable que define el abuso a diferentes sustancias.
+
+Vamos a ver las diferencias que existen entre el abuso a diferentes sustancias (como alcohol, cannabis, cocaína, heroína, alucinógenos, dragas de diseño u otras drogas), así como si existe abuso a alguna de ellas o no.
+
+Comenzamos con el abuso a algún tipo de sustancia, independientemente de su naturaleza. Esta viene codificada como `r sociodemografia_variables[13, 1]`.
+
+```{r PASUS_tabla_contingencia}
+# selección de los datos
+PASUS_ASPvsASO <- pacientes %>%  
+  select(GRUPO, PASUS)
+
+# tabla de contingencia
+data <- table(PASUS_ASPvsASO$GRUPO, PASUS_ASPvsASO$PASUS)
+row.names(data) <- c("ASP", "ASO")
+colnames(data) <- c("no", "si")
+
+# mostramos tabla
+print(data)
+```
+
+Se puede apreciar que la mayoría, en ambos grupos, no tienen un abuso de sustancias. El `r round(data[1, 1]/sum(data[1,])*100)`% de ASP frente al `r round(data[2, 1]/sum(data[2,])*100)`% del ASO.
+
+Veamos si estas diferencias son significativas. Conviene recordar que debido al bajo número de acontecimientos, se usará un *test exacto de Fisher*.
+
+```{r PASUS_test_contraste}
+# chi-cuadrado test
+(resultado <- fisher.test(data))
+```
+
+Con un p-valor de `r resultado$p.value`, no podemos rechazar la hipótesis nula, en que ambas frecuencias son iguales. **No se observan diferencias entre la existencia de abuso de sustancias entre los grupos de pacientes.**
+
+Continuamos con el análisis para cada una de las sustancias por las que se les ha entrevistado a los pacientes.
+
+```{r PASUS_TODAS_tabla_contingencia}
+# selección de los datos
+PASUSTODAS_ASPvsASO <- pacientes %>%  
+  select(GRUPO, PAALC:PASUS06, -PASUS)
+
+# tabla de contingencia
+data <- PASUSTODAS_ASPvsASO %>% 
+  group_by(GRUPO) %>% 
+  summarise_all(list(sum)) %>%
+  data.frame()
+row.names(data) <- c("ASP", "ASO")
+colnames(data) <- c("grupo", "alcohol", "cannabis", "cocaína",
+                    "heroína", "alucinógenos", "diseño", "otras")
+
+# mostramos tabla
+print.data.frame(data)
+```
+
+Se puede observar, como anteriormente, no existe un gran consumo de sustancias entre los pacientes. Destaca sobretodo el cannabis en ambos grupos, mientras que la cocaína está presente en algunos pacientes con ASP, no con ASO.
+
+Nos encontramos de nuevo con una tabla de contingencia con poco número de sucesos. Realizaremos un test exacto de Fisher para advertir si son significativas las diferencias.
+
+```{r PASUS_TODAS_test_contraste}
+# Fisher test
+(resultado <- fisher.test(data))
+```
+
+Con un `r round(resultado$p.value, 3)` como p-valor, advertimos que **no existen diferencias en el consumo de diferentes sustancias.**
+
+### **Variable `r sociodemografia_variables[20, 1]`.**
+
+Variable que define el tipo de inicio de la conducta.
+
+En esta variable se analizará el tipo de inicio de la conducta, la cual puede ser casual/por distracción o si aparició tras un acontecimiento importante o si es socio-familiar.
+
+```{r PACAU_tabla_contingencia}
+# selección de los datos
+PACAU_ASPvsASO <- pacientes %>%  
+  select(GRUPO, PACAU)
+
+# tabla de contingencia
+data <- table(PACAU_ASPvsASO$GRUPO, PACAU_ASPvsASO$PACAU)
+row.names(data) <- c("ASP", "ASO")
+colnames(data) <- c("casual", "acont_vital", "socio-familiar")
+
+# mostramos tabla
+print(data)
+```
+
+Se puede observar que con un `r data[1, 1]` en el grupo ASP y `r data[2, 1]` en ASO, la mayoría de los desencadenantes tienen origen de forma casual o por distracción, seguido de lejor por un desencadenante por un acontecimiento vital.
+
+Veamos si existen diferencias con un test exacto de Fisher.
+
+```{r PACAU_test_contraste}
+# chi-cuadrado test
+(resultado <- fisher.test(data))
+```
+
+Con un p-valor muy superior a 0.05 (`r round(resultado$p.value, 3)`), **no se aprecian diferencias en el tipo de inicio de la conducta.**
+
+### **Variable `r sociodemografia_variables[21, 1]`.**
+
+Variable que define el número de intentos de autolesión.
+
+En el siguiente análisis se tendrá en cuenta dos puntos, la media de intentos autolíticos por grupo y si ha habido incidente de intento autolítico por parte de los grupos.
+
+Comenzamos con el análisis de la media de intentos autolíticos, comenzando por su descripción estadística.
+
+```{r PAAUTO_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(PAAUTO_pacientes <- pacientes %>% 
+  select(GRUPO, PAAUTO) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max, total = sum)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, PAAUTO)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, PAAUTO)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, PAAUTO)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = PAAUTO, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por el número de 
+          intentos autolíticos")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$PAAUTO, main = "qqplot ASP"); qqline(qqplot_ASP$PAAUTO)
+qqnorm(qqplot_ASO$PAAUTO, main = "qqplot ASO"); qqline(qqplot_ASO$PAAUTO)
+
+# existe bastantes números de repetidos 
+table(as.factor(unlist(dataplot[dataplot$GRUPO == "1", 2])))
+
+# Con test de Anderson-Darling, veremos si existe normalidad
+ad.test(qqplot_ASP$PAAUTO); ad.test(qqplot_ASO$PAAUTO)
+```
+
+Se puede apreciar que han habido muy pocos intentos autolíticos en los dos grupos, siendo de `r PAAUTO_pacientes[1, 7]` en ASP y de `r PAAUTO_pacientes[2, 7]` en ASO. El número máximo de intentos autolíticos por un paciente es de `r PAAUTO_pacientes[1, 6]` en el grupo ASP. Es evidente que no existe distribución normal de los datos y que existe gran número de duplicidad de datos, ya que la mayoría no ha tenido un intento autolítico.
+
+```{r PAAUTO_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(PAAUTO~GRUPO, dataplot, FUN = mean)
+
+# test U de Mann-Whitney para testear medias
+# que se encuentra integrada en 
+# wilcox.test() cuando se indica que no están pareadas
+(resultado <- wilcox.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2]), 
+         alternative = "two.sided", paired = FALSE, exact = FALSE))
+```
+
+**No se aprecian diferencias significativas en el número de intentos autolíticos entre los grupos.** El valor-p arrojado es de `r round(resultado$p.value, 3)`, superior al 0.05.
+
+A continuación, veremos si existen diferencias por si se ha dato incidentes de intentos autolíticos por parte de los grupos. Comenzamos con la tabla de contingencia.
+
+```{r PAAUTO_tabla_contingencia}
+# selección de los datos
+PAAUTO_ASPvsASO <- pacientes %>% 
+  mutate(incidente = ifelse(PAAUTO > 0, "si", "no")) %>%
+  select(GRUPO, incidente) 
+
+# tabla de contingencia
+data <- table(PAAUTO_ASPvsASO$GRUPO, PAAUTO_ASPvsASO$incidente)
+row.names(data) <- c("ASP", "ASO")
+
+# mostramos tabla
+print(data)
+```
+
+Se puede apreciar que el número de incidentes es similar, variando entre `r round(data[1, 2]/sum(data[1,])*100, 2)`% en ASP y el `r round(data[2, 2]/sum(data[2,])*100, 2)`% ASO.
+
+Veamos si existen diferencias con un test exacto de Fisher.
+
+```{r PAAUTO_test_contraste}
+# chi-cuadrado test
+(resultado <- fisher.test(data))
+```
+
+Con un p-valor de `r round(resultado$p.value, 3)`, sensiblemente superior a 0.05, no se observan diferencias significativas.
+
+### **Variable `r sociodemografia_variables[22, 1]`.**
+
+Variable que define nivel de estudios de los pacientes de cada grupo.
+
+En esta variables nos encontraremos con 4 niveles de estudios: sin estudios, con estudios primerios, sucundarios y nivel universitario. Vamos a ver los datos en una tabla de contingencia y un gráfico.
+
+```{r studies_tabla_contingencia}
+# selección de los datos y tabla contingencia
+studies_ASPvsASO <- pacientes %>%  
+  select(GRUPO, studies) %>% 
+  data.frame()
+
+# tabla de contingencia
+data <- table(studies_ASPvsASO$GRUPO, studies_ASPvsASO$studies)
+row.names(data) <- c("ASP", "ASO")
+colnames(data) <- c("sin_estudios", "primarios",
+                    "secundarios", "universitarios")
+
+# mostramos tabla
+print(data)
+```
+
+No se pueden apreciar grandes diferencias a priori. Vamos a ver si existen estadísticamente con un test $\chi^2$.
+
+```{r studies_test_contraste}
+# Fisher exact test
+(resultado <- fisher.test(data))
+```
+
+Con un `r resultado$p.value`, superior al 0.05, no podmos rechazar la hipotesis nula, por lo que **no existen diferencias significativas entre grupos a nivel de estudios**.
+
+### **Variable `r sociodemografia_variables[24, 1]`.**
+
+Variable que define los años de evolución del problema con el sexo.
+
+Vamos a ver un resumen de los datos y su distribución.
+
+```{r evoluc_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(evoluc_pacientes <- pacientes %>% 
+  select(GRUPO, evoluc) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, evoluc)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, evoluc)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, evoluc)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = evoluc, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por el número de 
+          años de evolución del problema")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$evoluc, main = "qqplot ASP"); qqline(qqplot_ASP$evoluc)
+qqnorm(qqplot_ASO$evoluc, main = "qqplot ASO"); qqline(qqplot_ASO$evoluc)
+
+# Con test de Shapiro-Wills, veremos si existe normalidad
+shapiro.test(qqplot_ASP$evoluc); shapiro.test(qqplot_ASO$evoluc)
+```
+
+Podemos observar que los datos no siguen una distribución normal. Las medias de años son bastantes similares a priori, con mayor incidencia en ASP con un `r evoluc_pacientes[1, 3]` años frente a los `r evoluc_pacientes[2, 3]` años del grupo ASO.
+
+Veamos si son significativos estas diferencias con un test U de Mann-Whitney.
+
+```{r evoluc_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(evoluc~GRUPO, dataplot, FUN = mean)
+
+# test U de Mann-Whitney para testear medias
+# que se encuentra integrada en 
+# wilcox.test() cuando se indica que no están pareadas
+(resultado <- wilcox.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2]), 
+         alternative = "two.sided", paired = FALSE, exact = FALSE))
+```
+
+Con un valor-p de `r round(resultado$p.value, 3)`, superior al 0.05, **no se aprecian diferencias significativas en la media de años de evolución de la psicopatología entre ASP y ASO.**  
+
+### **Variable `r sociodemografia_variables[25, 1]`.**
+
+Variable que define si existe consumo de tabaco entre los pacientes.
+
+El consumo de tabaco, pese a que es un abuso de sustancia, no la agruparemos junto con el resto de sustancias analizadas anteriormente, ya que su efecto se da en la abtinencia, no tanto como en su consumo.
+
+Veamos una tabla de contingencia con los datos.
+
+```{r tabaco_tabla_contingencia}
+# selección de los datos
+tabaco_ASPvsASO <- pacientes %>%  
+  select(GRUPO, tabaco)
+
+# tabla de contingencia
+data <- table(tabaco_ASPvsASO$GRUPO, tabaco_ASPvsASO$tabaco)
+row.names(data) <- c("ASP", "ASO")
+colnames(data) <- c("no", "si")
+
+# mostramos tabla
+print(data)
+```
+
+Vemos que la mayoría de los pacientes, tanto en ASP como en ASP, no consumen tabaco. Veamos si estas diferencias son significativas.
+
+```{r tabaco_test_contraste}
+# chi-cuadrado test
+(resultado <- chisq.test(data))
+```
+
+Como se puede apreciar, con un valor-p de `r resultado$p.value`, superior al nivel de significancia marcado (0.05), **no existen diferencias en el consumo de tabaco entre los pacientes de los grupos ASP y ASO.**
+
+### **Variable `r sociodemografia_variables[26, 1]`.**
+
+Variable que define la edad en que se inicio la problemática.
+
+Para finalizar el bloque de comparaciones sociodemográficas de los pacientes, vamos a comparar la edad de inicio en la adicción al sexo, ya sea presencial o cibersexo según el grupo.
+
+```{r Inicio_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(Inicio_pacientes <- pacientes %>% 
+  select(GRUPO, Inicio) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max, total = sum)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, Inicio)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, Inicio)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, Inicio)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = Inicio, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por 
+          la edad de inicio a la adicción")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$Inicio, main = "qqplot ASP"); qqline(qqplot_ASP$Inicio)
+qqnorm(qqplot_ASO$Inicio, main = "qqplot ASO"); qqline(qqplot_ASO$Inicio)
+
+# Con test de Shapiro-Wills, veremos si existe normalidad
+shapiro.test(qqplot_ASP$Inicio); shapiro.test(qqplot_ASO$Inicio)
+```
+
+Como se puede apreciar, la edad media de inicio a la adicción de es `r Inicio_pacientes[1, 3]` años para ASP y de `r Inicio_pacientes[1, 3]` años para ASO. Los datos sguen una distribución normal.
+
+Vamos a valorar las varianzas y en el caso de ser iguales realizaremos un test de constraste de medias de dos colas siguiente un test t-student.
+
+```{r Inicio_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(Inicio~GRUPO, dataplot, FUN = mean)
+
+# test de t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]), 
+                     unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+Con un valor-p de `r round(resultado$p.value, 3)`, muy superior al 0.05 que marca la significancia, **no existen diferencias entre las medias de edad de inicio a la adicción al sexo entre los grupos que siguen la modalidad presencial y los que siguen el cibersexo.**
+
+## **ASP vs ASO en perfiles de la personalidad.**
+
+El Inventario de Temperamento y Carácter-Revisado (TCI-R) es un instrumento psicométrico desarrollado por Cloninger, Svrakic, Bayón y Przybeck en 1999, en que se trata de medir empíricamente la personalidad a través de 4 características del temperamento (Búsqueda de novedad (*Novelty Seeking [NS]*), evitación del daño (*Harm Avoidance [HA]*), dependencia de la recompensa (*Reward Dependence [RD]*) y persistencia(*Persistence [PS]*)) y 3 características del carácter (autodeterminación (*Self-directedness [SD]*), cooperativismo (*Cooperativeness  [CO]*),  y auto-trascendencia (*Self-transcendence [ST]*)) haciendo uso de un test con 240 ítems (**CITA REQUERIDA**). La siguiente variables, *validity*, tras buscar en bibliografía y no encontrar nada y tras mirar los valores que adquiere, parece ser un parámetro que mide la validez de la prueba. 
+
+El objetivo es comparar los dos grupos de pacientes, ASP y ASO, para ver si existen diferencias en cada una de las dimensiones de la personalidad antes presentadas, además de la creación de un modelo de regresión y un estudio de análisis de componentes principales.
+
+Vamos a mirar que variables hemos de analizar.
+
+```{r variables_analizar_ASPvsASO_personalidad}
+# datos: variables que definen sociodependencia
+personalidad_variables <- variables %>% filter(Tipo_Variable == "personalidad") %>%
+  select(Variable, Descripcion)
+print.data.frame(personalidad_variables)
+```
+
+Se puede apreciar que existen `r nrow(personalidad_variables)` variables, las 7 que definen la personalidad y una última que sirve para validar los resultados. Realizaremos comparaciones entre los grupos de pacientes (ASO vs ASP) para detectar diferencias entre cada una de las dimensiones analizadas.
+
+### **Variable:** `r personalidad_variables[1, 1]`.
+
+Variable que define la dimensión de *busqueda de novedad* en los pacientes. Veamos un resumen estadístico y la distribución de los datos.
+
+```{r NSTOTAL_descriptivo}
+# seleccionamos los datos y creamos una tabla resumen
+(NSTOTAL_pacientes <- pacientes %>% 
+  select(GRUPO, NSTOTAL) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, NSTOTAL)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, NSTOTAL)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, NSTOTAL)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = NSTOTAL, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por la puntuación en NS")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$NSTOTAL, main = "qqplot ASP"); qqline(qqplot_ASP$NSTOTAL)
+qqnorm(qqplot_ASO$NSTOTAL, main = "qqplot ASO"); qqline(qqplot_ASO$NSTOTAL)
+
+# Con test de Shapiro-Wills, veremos si existe normalidad
+shapiro.test(qqplot_ASP$NSTOTAL); shapiro.test(qqplot_ASO$NSTOTAL)
+```
+
+Vemos que las medias son similares, con `r NSTOTAL_pacientes[1, 3]` en ASP frente a `r NSTOTAL_pacientes[2, 3]` de ASP.
+
+Los datos siguen una distribución normal, más pronunciada en el grupo ASP. Valoremos si las varianzas son igual, de ser así, podremos realizar un test t-student para datos no pareados, con el propósito de valorar si las diferencias son estadísticamente significativas.
+
+```{r NSTOTAL_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(NSTOTAL~GRUPO, dataplot, FUN = mean)
+
+# test de t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+Con un p-valor de `r round(resultado$p.value, 3)`, superior al marcado como significancia estadística, **no se observan diferencias significativas entre los grupos ASP y ASO en *Novelty Seeking*.**
+
+### **Variable:** `r personalidad_variables[2, 1]`.
+
+Variable que define la dimensión de *evitación del daño* en la personalidad de los pacientes. Veamos un resumen estadístico y la distribución de los datos.
+
+```{r HATOTAL_descriptivo}
+# seleccionamos los datos y creamos una tabla resumen
+(HATOTAL_pacientes <- pacientes %>% 
+  select(GRUPO, HATOTAL) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, HATOTAL)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, HATOTAL)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, HATOTAL)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = HATOTAL, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por la puntuación en HA")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$HATOTAL, main = "qqplot ASP"); qqline(qqplot_ASP$HATOTAL)
+qqnorm(qqplot_ASO$HATOTAL, main = "qqplot ASO"); qqline(qqplot_ASO$HATOTAL)
+
+# Con test de Shapiro-Wills, veremos si existe normalidad
+shapiro.test(qqplot_ASP$HATOTAL); shapiro.test(qqplot_ASO$HATOTAL)
+```
+
+Vemos que las medias son similares, con `r HATOTAL_pacientes[1, 3]` en ASP frente a `r HATOTAL_pacientes[2, 3]` de ASP, diferenciándose únicamente en un punto.
+
+Los datos siguen una distribución normal. Valoremos si las varianzas son igual, de ser así, podremos realizar un test t-student para datos no pareados, con el propósito de valorar si las diferencias son estadísticamente significativas.
+
+```{r HATOTAL_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(HATOTAL~GRUPO, dataplot, FUN = mean)
+
+# test de t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+Con un p-valor de `r round(resultado$p.value, 3)`, superior al marcado como significancia estadística, **no se observan diferencias significativas entre los grupos ASP y ASO en *harm avoidance*.**
+
+### **Variable:** `r personalidad_variables[3, 1]`.
+
+Variable que define la dimensión de la *dependencia de la recompensa* en la personalidad de los pacientes. Veamos un resumen estadístico y la distribución de los datos de la puntuación del test TCI-R en esta dimensión.
+
+```{r RDTOTAL_descriptivo}
+# seleccionamos los datos y creamos una tabla resumen
+(RDTOTAL_pacientes <- pacientes %>% 
+  select(GRUPO, RDTOTAL) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, RDTOTAL)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, RDTOTAL)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, RDTOTAL)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = RDTOTAL, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por la puntuación en RD")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$RDTOTAL, main = "qqplot ASP"); qqline(qqplot_ASP$RDTOTAL)
+qqnorm(qqplot_ASO$RDTOTAL, main = "qqplot ASO"); qqline(qqplot_ASO$RDTOTAL)
+
+# Con test de Shapiro-Wills, veremos si existe normalidad
+shapiro.test(qqplot_ASP$RDTOTAL); shapiro.test(qqplot_ASO$RDTOTAL)
+```
+
+Vemos que las medias son muy similares, con `r RDTOTAL_pacientes[1, 3]` en ASP frente a `r RDTOTAL_pacientes[2, 3]` de ASP, diferenciándose únicamente en `r round(RDTOTAL_pacientes[1, 3] - RDTOTAL_pacientes[2, 3], 2)`.
+
+Los datos siguen una distribución normal, más pronunciada en el grupo ASP, el cual recordemos tiene un tamaño muestral algo mayor. Valoremos si las varianzas son igual, de ser así, podremos realizar un test t-student para datos no pareados, con el propósito de valorar si las diferencias son estadísticamente significativas.
+
+```{r RDTOTAL_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(RDTOTAL~GRUPO, dataplot, FUN = mean)
+
+# test de t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+Como era de esperar, el valor-p arrojado por el test t-student es superior a 0.05 (`r round(resultado$p.value, 3)`), **no existen diferencias significativas entre los grupos en la puntuación de *reward dependence*.**
+
+### **Variable:** `r personalidad_variables[4, 1]`.
+
+Variable que define la dimensión de la *persistencia* en la personalidad de los pacientes. Veamos un resumen estadístico y la distribución de los datos de la puntuación del test TCI-R en esta dimensión.
+
+```{r PSTOTAL_descriptivo}
+# seleccionamos los datos y creamos una tabla resumen
+(PSTOTAL_pacientes <- pacientes %>% 
+  select(GRUPO, PSTOTAL) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, PSTOTAL)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, PSTOTAL)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, PSTOTAL)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = PSTOTAL, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por la puntuación en PS")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$PSTOTAL, main = "qqplot ASP"); qqline(qqplot_ASP$PSTOTAL)
+qqnorm(qqplot_ASO$PSTOTAL, main = "qqplot ASO"); qqline(qqplot_ASO$PSTOTAL)
+
+# Con test de Shapiro-Wills, veremos si existe normalidad
+shapiro.test(qqplot_ASP$PSTOTAL); shapiro.test(qqplot_ASO$PSTOTAL)
+```
+
+Vemos que las medias son similares, con `r PSTOTAL_pacientes[1, 3]` en ASP frente a `r PSTOTAL_pacientes[2, 3]` de ASP, diferenciándose únicamente en `r round(PSTOTAL_pacientes[1, 3] - PSTOTAL_pacientes[2, 3], 2)`.
+
+Los datos siguen una distribución normal. Valoremos si las varianzas son igual, de ser así, podremos realizar un test t-student para datos no pareados, con el propósito de valorar si las diferencias son estadísticamente significativas.
+
+```{r PSTOTAL_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(PSTOTAL~GRUPO, dataplot, FUN = mean)
+
+# test de t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+Como era de esperar, el valor-p arrojado por el test t-student es muy superior a 0.05 (`r round(resultado$p.value, 3)`), **no existen diferencias significativas entre los grupos en la puntuación de *persitencia* en el test TCI-R.**
+
+### **Variable:** `r personalidad_variables[5, 1]`.
+
+Variable que define la dimensión de la *autodeterminación* en la personalidad de los pacientes, perteneciente ya al carácter. Veamos un resumen estadístico y la distribución de los datos de la puntuación del test TCI-R en esta dimensión.
+
+```{r SDTOTAL_descriptivo}
+# seleccionamos los datos y creamos una tabla resumen
+(SDTOTAL_pacientes <- pacientes %>% 
+  select(GRUPO, SDTOTAL) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, SDTOTAL)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, SDTOTAL)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, SDTOTAL)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = SDTOTAL, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por la puntuación en SD")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$SDTOTAL, main = "qqplot ASP"); qqline(qqplot_ASP$SDTOTAL)
+qqnorm(qqplot_ASO$SDTOTAL, main = "qqplot ASO"); qqline(qqplot_ASO$SDTOTAL)
+
+# Con test de Shapiro-Wills, veremos si existe normalidad
+shapiro.test(qqplot_ASP$SDTOTAL); shapiro.test(qqplot_ASO$SDTOTAL)
+```
+
+Vemos que las medias algo más dispares que lo visto en las dimensiones que describen el temperamento de la personalidad, con `r SDTOTAL_pacientes[1, 3]` en ASP frente a `r SDTOTAL_pacientes[2, 3]` de ASP, diferenciándose únicamente en `r abs(round(SDTOTAL_pacientes[1, 3] - SDTOTAL_pacientes[2, 3], 2))`.
+
+Los datos siguen una distribución normal. Las varianzas se esperan que sean iguales, no obstante las valoraremos. En el caso de ser varianzas iguales, podremos realizar un test t-student para datos no pareados, con el propósito de valorar si las diferencias son estadísticamente significativas.
+
+```{r SDTOTAL_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(SDTOTAL~GRUPO, dataplot, FUN = mean)
+
+# test de t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+Se puede apreciar, pese a que las diferencias parecían ser evidentes, el valor-p arrojado por el test t-student es muy superior a 0.05 (`r round(resultado$p.value, 3)`), **no existen diferencias significativas entre los grupos en la puntuación de *self-directedness* en el test TCI-R, la primera dimensión que describe el carácter.**
+
+### **Variable:** `r personalidad_variables[6, 1]`.
+
+Variable que define la dimensión de la *cooperativismo* en la personalidad de los pacientes, perteneciente al carácter. Veamos un resumen estadístico y la distribución de los datos de la puntuación del test TCI-R en esta dimensión.
+
+```{r CTOTAL_descriptivo}
+# seleccionamos los datos y creamos una tabla resumen
+(CTOTAL_pacientes <- pacientes %>% 
+  select(GRUPO, CTOTAL) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, CTOTAL)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, CTOTAL)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, CTOTAL)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = CTOTAL, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por la puntuación en SD")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$CTOTAL, main = "qqplot ASP"); qqline(qqplot_ASP$CTOTAL)
+qqnorm(qqplot_ASO$CTOTAL, main = "qqplot ASO"); qqline(qqplot_ASO$CTOTAL)
+
+# Con test de Shapiro-Wills, veremos si existe normalidad
+shapiro.test(qqplot_ASP$CTOTAL); shapiro.test(qqplot_ASO$CTOTAL)
+```
+
+Vemos que las medias aún más dispares que lo visto en las dimensiones que describen el temperamento de la personalidad, con `r CTOTAL_pacientes[1, 3]` en ASP frente a `r CTOTAL_pacientes[2, 3]` de ASP, diferenciándose en `r abs(round(CTOTAL_pacientes[1, 3] - CTOTAL_pacientes[2, 3], 2))`.
+
+Los datos siguen una distribución normal en el grupo ASO, no en ASP. Las varianzas no se esperan que sean iguales, no obstante las valoraremos con un test F de Snedecor. En el caso de confirmarse que las varianzas sean diferentes, recurriremos a un test de contraste Welch-t, usando el mismo comando que para t.student pero indicando con un parámetro que las varianzas no son iguales.
+
+```{r CTOTAL_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(CTOTAL~GRUPO, dataplot, FUN = mean)
+
+# test de t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2]), var.equal = FALSE))
+```
+
+Se puede apreciar, pese a que las diferencias parecían más evidentes, el valor-p arrojado por el test t-student es muy superior a 0.05 (`r round(resultado$p.value, 3)`), **no existen diferencias significativas entre los grupos en la puntuación de *cooperativeness* en el test TCI-R, dimensión que describe el carácter.**
+
+### **Variable:** `r personalidad_variables[7, 1]`.
+
+Variable que define la dimensión de la *auto-transcendencia* en la personalidad de los pacientes, la última variable que define al carácter. Veamos un resumen estadístico y la distribución de los datos de la puntuación del test TCI-R en esta dimensión.
+
+```{r STTOTAL_descriptivo}
+# seleccionamos los datos y creamos una tabla resumen
+(STTOTAL_pacientes <- pacientes %>% 
+  select(GRUPO, STTOTAL) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, STTOTAL)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, STTOTAL)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, STTOTAL)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = STTOTAL, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por la puntuación en SD")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$STTOTAL, main = "qqplot ASP"); qqline(qqplot_ASP$STTOTAL)
+qqnorm(qqplot_ASO$STTOTAL, main = "qqplot ASO"); qqline(qqplot_ASO$STTOTAL)
+
+# Con test de Shapiro-Wills, veremos si existe normalidad
+shapiro.test(qqplot_ASP$STTOTAL); shapiro.test(qqplot_ASO$STTOTAL)
+```
+
+Vemos que las medias, con `r STTOTAL_pacientes[1, 3]` en ASP frente a `r STTOTAL_pacientes[2, 3]` de ASP, no se diferencian demasiado (`r abs(round(STTOTAL_pacientes[1, 3] - STTOTAL_pacientes[2, 3], 2))`).
+
+Los datos siguen una distribución normal, tanto en ASP como en ASO. Las varianzas se esperan que sean iguales, no obstante las valoraremos con un test F de Snedecor. En el caso de confirmarse que las varianzas sean iguales, recurriremos a un test t-student.
+
+```{r STTOTAL_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(STTOTAL~GRUPO, dataplot, FUN = mean)
+
+# test de t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2]), var.equal = FALSE))
+```
+
+Como era de esperar, el valor-p arrojado por el test t-student es superior a 0.05 (`r round(resultado$p.value, 3)`), **no existen diferencias significativas entre los grupos en la puntuación de *self-transcendence* en el test TCI-R, dimensión que describe el carácter.**
+
+### **Modelo de regresión en la personalidad.**
+
+A continuación vamos a generar un modelo de regresión lineal que explique las observaciones. En este modelo, las variables de TCI-R clasifican las boservaciones en grupos, ASP y ASO. Primero veamos los datos.
+
+```{r TCI-R_modelo_regresion_seleccion_datos}
+# selección de lo datos
+lmod_data <- pacientes %>% 
+  select(GRUPO, NSTOTAL:STTOTAL) %>%
+ data.frame()
+
+# centralizamos datos
+lmod_data[, 2:8] <- apply(lmod_data[, 2:8], 2, 
+                          function(y) (y - min(y)) / (max(y) - min(y)))
+```
+
+Como se puede apreciar, en las columnas hay valores muy dispares, así que hemos necesitado
+centralizar los datos, realizar una normalización para que no haya variables con mayor peso que otras. 
+
+```{r TCI-R_generacion_modelo}
+# creamos el modelo
+lmod <- lm(GRUPO ~ ., data = lmod_data)
+
+
+# resumen del modelo
+(resultado <- summary(lmod))
+```
+
+Este modelo se aplicaría a los resultados obtenidos en un test TCI-R, obteniéndose un valor como respuesta, cuya cercanía al valor 1 indicaría adicción al sexo presencial o la cercanía a 2 indicaría adicción al cibersexo. Se puede apreciar que existe un valor pobre de $r^2$ en el modelo, de `r round(resultado$r.squared, 2)`, además de un p-valor bastante superior al nivel de significancia. Esto concuerda perfectamente con lo visto hasta ahora, ya que las diferencias entre cada una de las variables analizadas entre grupos es nula, tenemos un modelo con significancia individual parcial. 
+
+Así mismo, es un modelo con muchas variables y puede ser que algunas de ellas estén perjudicando los resultados. A continuación, haremos una selección de variables y después buscaremos autocorrelaciones para intentar mejorar el modelo.
+
+```{r TCI_R_AIC_seleccion_numero_variables}
+# con regsubsets extraemos los valores de los residuos
+rs <- summary(regsubsets(GRUPO ~ ., 
+                         data = lmod_data, nvmax = 7))
+
+# AIC para ver cuantos predictores tienen menor valor AIC
+AIC <- 45* log(rs$rss /45) + (2:8) *2
+plot(AIC ~ I(1:7), ylab="AIC", xlab="Number of Predictors", main = "AIC")
+```
+
+Vemos que lo ideal sería con 1 sola variable. veamos que variable serían esas.
+
+```{r TCI_R_AIC_seleccion_variables}
+# veamos que variables podemos seleccionar
+rs
+```
+
+NSTOTAL, que es la busqueda de novedad, sería el mejor modelo.
+
+
+```{r TCI_R_modelos_alternativos_reducidos}
+# modelos reducidos de 1 variable.
+lmod_2 <- lm(GRUPO ~ NSTOTAL, lmod_data)
+
+# a ver que nos dice el modelo
+summary(lmod_2)
+```
+
+Podemos observar que es un modelo muy pobre, donde además no existe un p-valor que establezca significancia ni un $r^2$ que nos diga que se explique los resultados.
+
+No obstante, ante estos resultados, vamos a probar con otra clase de modelo que nos proveé el paquete *rpart*, el cual es un modelo de clasificación o árboles de decisión.
+
+```{r TCI-R_modelo_arbol_decision}
+# cambiamos los datos de respuesta
+lmod_data[, 1] <- as.factor(lmod_data[, 1])
+levels(lmod_data[, 1]) <- c("ASP", "ASO")
+
+# creamos el modelo con los datos
+(lmod_2 <- rpart(GRUPO ~ ., lmod_data))
+
+```
+
+Podemos apreciar el esquema del árbol de decisión, con las reglas correspondientes de cada nodo, para realizar una clasificación de los datos. Siguiendo nodo por nodo podríamos llegar a clasificar un resultado que tuvieramos a mano. Por desgracia en este momento no tenemos más datos de TCI-R para evaluar el modelo, además que aún necesitamos los datos de controles. Igualmente mostramos un gráfico para mostrar el resultado y un resumen del modelo.
+
+```{r TCI-R_grafico_modelo_resumen}
+# gráfico de árbol de decisión con sus probabilidades
+rpart.plot(lmod_2)
+
+# resumen del modelo
+summary(lmod_2)
+```
+
+Lo anterior muestra el esquema de nuestro árbol de clasificación. Cada inciso nos indica un nodo y la regla de clasificación que le corresponde. Siguiendo estos nodos, podemos llegar a las hojas del árbol, que corresponde a la clasificación de nuestros datos.
+
+En el gráfico podemos ver los recuadros que están coloreados según su cercanía a cada grupo, azul para ASP y verde para ASO. Además muestra en el recuadro la proporción de pacientes que entra dentro de esa clasificación en cada nodo y su porcentaje de acierto.
+
+Además, se puede observar en el resumen, que por importancia, la dimensión del temperamento correspondiente a la búsqueda de novedad (*novelty seeking o NS*) junto con la dimensión del carácter autodeterminación (*self-directedness o SD*) son las variables que a priori tienen mayor importancia. Incluso podemos ver, con mayor clariadad que en el gráfico, la proporción de pacientes que entran en cada grupo a tra´ves de cada nodo.
+
+Conviene recordar que al aplicar el modelo, los datos deben estar siempre centralizados.
+
+## **ASP vs ASO en las características de psicopatologías.**
+
+Las características de la psicopatología son un conjunto de 4 test que valoran diferentes aspectos relacionados con el estado psicológico de los pacientes en ese momento. Los test son los siguientes:
+
+  - Symptom Checklist 90 (SLC-90): Test de 90 ítems que miden hasta 11 dimensiones del estado psicológico del paciente: somatización, obsesión/compulsión, sensibilidad interpersonal, depresión, ansiedad, hostilidad, fobia, paranoia, psicoticismo, severidad global y PSDI.
+  
+  - Escala de impulsividad de Barert (BIS): Test que consta de 30 ítem en que se mide diferentes parámetros de la impulsividad de los pacientes.
+  
+  - Escala de Compulsividad Sexual (ECS): Test que mide la compulsividad segual de los paciente con adicción al sexo.
+  
+  - State-Trait Anxiety Inventory (STAI): Test que mide el estado de ansiedad de los pacientes a través de un test de 20 ítems.
+
+Estas son las variables a comparar. Por cada test, realizaremos un modelo de regresión.
+
+```{r}
+(psicopatologia_variables <- variables %>% 
+   filter(Tipo_Variable == "psicopatologia"))
+```
+
+### **SLC-90, Variable:** `r psicopatologia_variables[1, 1]`.
+
+Esta variable evalúa la somatización, que es la sensación de malestar derivado por disfunciones coorporales.
+
+```{r SOMATP_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(SOMATP <- pacientes %>% 
+  select(GRUPO, SOMATP) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, SOMATP)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, SOMATP)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, SOMATP)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = SOMATP, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por 
+          la puntuación TCI_r en somatización")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$SOMATP, main = "qqplot ASP"); qqline(qqplot_ASP$SOMATP)
+qqnorm(qqplot_ASO$SOMATP, main = "qqplot ASO"); qqline(qqplot_ASO$SOMATP)
+
+# Con test de Anderson-Darling, veremos si existe normalidad
+ad.test(qqplot_ASP$SOMATP); ad.test(qqplot_ASO$SOMATP)
+```
+
+Se puede observar que las diferencias no son muy grandes, de `r SOMATP[1, 3]` para ASP por `r SOMATP[2, 3]` en ASO. Los datos siguen una distribución normal en ASP, no siendo así en ASO.
+
+Por ese motivo, se realizará un test U de Mann-Whitney para realizar el contraste a dos colas.
+
+```{r SOMATP_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(SOMATP~GRUPO, dataplot, FUN = mean)
+
+# test U de Mann-Whitney para testear medias
+# que se encuentra integrada en 
+# wilcox.test() cuando se indica que no están pareadas
+(resultado <- wilcox.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2]), 
+         alternative = "two.sided", paired = FALSE, exact = FALSE))
+```
+
+Podemos ver que el p-valor del test no paramétrico U de Mann-Whitney es de `r round(resultado$p.value, 3)`, muy superior al 0.05. **No existen diferencias entre los grupos ASP y ASO en la valoración de la somatización en el test SCL-90.**
+
+### **SLC-90, Variable:** `r psicopatologia_variables[2, 1]`.
+
+Esta variable evalúa la obsesión o compulsiones, que son los pensamientos, acciones e impulsos que  son imposibles de evitar y/o no deseados.
+
+```{r OBSESP_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(OBSESP <- pacientes %>% 
+  select(GRUPO, OBSESP) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, OBSESP)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, OBSESP)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, OBSESP)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = OBSESP, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por 
+          la puntuación TCI_R en obsesión")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$OBSESP, main = "qqplot ASP"); qqline(qqplot_ASP$OBSESP)
+qqnorm(qqplot_ASO$OBSESP, main = "qqplot ASO"); qqline(qqplot_ASO$OBSESP)
+
+# Con test de Anderson-Darling, veremos si existe normalidad
+ad.test(qqplot_ASP$OBSESP); ad.test(qqplot_ASO$OBSESP)
+```
+
+Se puede observar que las diferencias son mínimas, con una diferencia entre los grupos de `r abs(round(OBSESP[1, 3] - OBSESP[2, 3], 2))`, siendo `r OBSESP[1, 3]` para ASP por `r OBSESP[2, 3]` en ASO. Los datos siguen una distribución normal en ASO, no siendo así en ASP.
+
+Por ese motivo, se realizará un test U de Mann-Whitney para realizar el contraste a dos colas.
+
+```{r OBSESP_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(OBSESP~GRUPO, dataplot, FUN = mean)
+
+# test U de Mann-Whitney para testear medias
+# que se encuentra integrada en 
+# wilcox.test() cuando se indica que no están pareadas
+(resultado <- wilcox.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2]), 
+         alternative = "two.sided", paired = FALSE, exact = FALSE))
+```
+
+Podemos ver que el p-valor del test no paramétrico U de Mann-Whitney es de `r round(resultado$p.value, 3)`, muy superior al 0.05. **No existen diferencias entre los grupos ASP y ASO en la valoración de la obsesión o compulsión en el test SCL-90.**
+
+### **SLC-90, Variable:** `r psicopatologia_variables[3, 1]`.
+
+Esta variable evalúa la sensibilidad personal, que se centra en los sentimientos de inferioridad e inedecuación en los pacientes.
+
+```{r SENSIP_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(SENSIP <- pacientes %>% 
+  select(GRUPO, SENSIP) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, SENSIP)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, SENSIP)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, SENSIP)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = SENSIP, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por la puntuación TCI-R 
+          en sensivilidad personal")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$SENSIP, main = "qqplot ASP"); qqline(qqplot_ASP$SENSIP)
+qqnorm(qqplot_ASO$SENSIP, main = "qqplot ASO"); qqline(qqplot_ASO$SENSIP)
+
+# Con test de Anderson-Darling, veremos si existe normalidad
+shapiro.test(qqplot_ASP$SENSIP); shapiro.test(qqplot_ASO$SENSIP)
+```
+
+Se puede observar que las diferencias son algo mayores que en las variables analizadas de SLC-90 hasta el momento, con una diferencia entre los grupos de `r abs(round(SENSIP[1, 3] - SENSIP[2, 3], 2))`, siendo `r SENSIP[1, 3]` para ASP por `r SENSIP[2, 3]` en ASO. Los datos siguen una distribución normal en ASO, no siendo así en ASP.
+
+Por ese motivo, se realizará un test U de Mann-Whitney para realizar el contraste a dos colas.
+
+```{r SENSIP_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(SENSIP~GRUPO, dataplot, FUN = mean)
+
+# test U de Mann-Whitney para testear medias
+# que se encuentra integrada en 
+# wilcox.test() cuando se indica que no están pareadas
+(resultado <- wilcox.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2]), 
+         alternative = "two.sided", paired = FALSE, exact = FALSE))
+```
+
+Podemos ver que el p-valor del test no paramétrico U de Mann-Whitney es de `r round(resultado$p.value, 3)`, muy superior al 0.05. **No existen diferencias entre los grupos ASP y ASO en la valoración de la sensivilidad personal en el test SCL-90.** No se puedo calcular el valor-p con exactitud debido a la repetición de los datos.
+
+### **SLC-90, Variable:** `r psicopatologia_variables[4, 1]`.
+
+Esta variable evalúa la depresión. Es una representan  una  muestra  representativa  de  las  principales  manifestaciones  clínicas  de  una  trastorno  de  tipo  depresivo:  estado  de  ánimo  disfórico, falta de motivación, poca energía vital, sentimientos de desesperanza, ideas suicidas.
+
+```{r DEPRESP_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(DEPRESP <- pacientes %>% 
+  select(GRUPO, DEPRESP) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, DEPRESP)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, DEPRESP)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, DEPRESP)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = DEPRESP, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por 
+          la puntuación en TCI-R en depresión")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$DEPRESP, main = "qqplot ASP"); qqline(qqplot_ASP$DEPRESP)
+qqnorm(qqplot_ASO$DEPRESP, main = "qqplot ASO"); qqline(qqplot_ASO$DEPRESP)
+
+# Con test de Anderson-Darling, veremos si existe normalidad
+shapiro.test(qqplot_ASP$DEPRESP); shapiro.test(qqplot_ASO$DEPRESP)
+```
+
+Con una diferencia entre los grupos de `r abs(round(DEPRESP[1, 3] - DEPRESP[2, 3], 2))`, el grupo ASP obtiene una puntuación de `r DEPRESP[1, 3]` mientras que ASO obtiene `r DEPRESP[2, 3]`. Los datos siguen una distribución normal en ambos grupos.
+
+Se valorarán las varianzas. En el caso que fueran iguales, se usaría un test t-student para valorar diferencias entre los grupos, en cambio, en caso de no ser las varianzas de los grupos iguales, se recurriría a un test Welch-t.
+
+```{r DEPRESP_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(DEPRESP~GRUPO, dataplot, FUN = mean)
+
+# test U de Mann-Whitney para testear medias
+# que se encuentra integrada en 
+# wilcox.test() cuando se indica que no están pareadas
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+Podemos ver que el p-valor del test paramétrico t-student es de `r round(resultado$p.value, 3)`, muy superior al 0.05. **No existen diferencias entre los grupos ASP y ASO en la valoración de la depresión en el test SCL-90.**
+
+### **SLC-90, Variable:** `r psicopatologia_variables[5, 1]`.
+
+Esta variable evalúa la ansiedad, la  presencia  de  signos generales de ansiedad tales como nerviosismo, tensión, ataques de pánico, miedos, entre otros.
+
+```{r ANSIEP_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(ANSIEP <- pacientes %>% 
+  select(GRUPO, ANSIEP) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, ANSIEP)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, ANSIEP)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, ANSIEP)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = ANSIEP, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por la puntuación en 
+          TCI-R en ansiendad")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$ANSIEP, main = "qqplot ASP"); qqline(qqplot_ASP$ANSIEP)
+qqnorm(qqplot_ASO$ANSIEP, main = "qqplot ASO"); qqline(qqplot_ASO$ANSIEP)
+
+# Con test de Shapiro-Wills, veremos si existe normalidad
+shapiro.test(qqplot_ASP$ANSIEP); shapiro.test(qqplot_ASO$ANSIEP)
+```
+
+Con una diferencia entre los grupos de `r abs(round(ANSIEP[1, 3] - ANSIEP[2, 3], 2))`, el grupo ASP obtiene una puntuación de `r ANSIEP[1, 3]` mientras que ASO obtiene `r ANSIEP[2, 3]`. Los datos no siguen una distribución normal en ninguno de los grupos.
+
+Al no haber una distribución normal de los datos, se recurre a un test no paramétrico, test U de Mann-Whitney.
+
+```{r ANSIEP_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(ANSIEP~GRUPO, dataplot, FUN = mean)
+
+# test U de Mann-Whitney para testear medias
+# que se encuentra integrada en 
+# wilcox.test() cuando se indica que no están pareadas
+(resultado <- wilcox.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2]), 
+         alternative = "two.sided", paired = FALSE, exact = FALSE))
+```
+
+Podemos ver que el p-valor del test paramétrico t-student es de `r round(resultado$p.value, 3)`, inferior a 0.05. **Existen diferencias estadísticamente significativas entre los grupos ASP y ASO en la valoración de la ansiedad en el test SCL-90.** Se debe tener presente la imposibilidad de calcular el valor-p exacto debido a la repetición de los datos.
+
+### **SLC-90, Variable:** `r psicopatologia_variables[6, 1]`.
+
+Esta variable evalúa la hostilidad, que hace referencia a pensamientos, sentimientos y acciones característicos de la presencia de afectos negativos de enojo.
+
+```{r HOSPTILP_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(HOSTILP <- pacientes %>% 
+  select(GRUPO, HOSTILP) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, HOSTILP)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, HOSTILP)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, HOSTILP)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = HOSTILP, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por la puntuación
+          de TCI-R en hostilidad.")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$HOSTILP, main = "qqplot ASP"); qqline(qqplot_ASP$HOSTILP)
+qqnorm(qqplot_ASO$HOSTILP, main = "qqplot ASO"); qqline(qqplot_ASO$HOSTILP)
+
+# Con test de Anderson-Darling, veremos si existe normalidad
+ad.test(qqplot_ASP$HOSTILP); ad.test(qqplot_ASO$HOSTILP)
+```
+
+Con una diferencia entre los grupos de `r abs(round(HOSTILP[1, 3] - HOSTILP[2, 3], 2))`, el grupo ASP obtiene una puntuación de `r HOSTILP[1, 3]` mientras que ASO obtiene `r HOSTILP[2, 3]`. Los datos no siguen una distribución normal en ninguno de los grupos.
+
+Al no haber una distribución normal de los datos, se recurre a un test no paramétrico, test U de Mann-Whitney.
+
+```{r HOSTILP_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(HOSTILP~GRUPO, dataplot, FUN = mean)
+
+# test U de Mann-Whitney para testear medias
+# que se encuentra integrada en 
+# wilcox.test() cuando se indica que no están pareadas
+(resultado <- wilcox.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2]), 
+         alternative = "two.sided", paired = FALSE, exact = FALSE))
+```
+
+Podemos ver que el p-valor del test paramétrico t-student es de `r round(resultado$p.value, 3)`, superior a 0.05. **No existen diferencias estadísticamente significativas entre los grupos ASP y ASO en la valoración de la hostilidad en el test SCL-90.** Hay que tener presente que el valor-p exacto no puede ser calculado debido a la existencia de valores repetidos.
+
+### **SLC-90, Variable:** `r psicopatologia_variables[7, 1]`.
+
+Esta variable evalúa la fobia, malestar alude a una respuesta persistente de miedo (a personas  específicas, lugares, objetos, situaciones) que es en sí misma irracional y desproporcionada en relación con el estímulo que la provoca. 
+
+```{r FOBIAP_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(FOBIAP <- pacientes %>% 
+  select(GRUPO, FOBIAP) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, FOBIAP)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, FOBIAP)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, FOBIAP)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = FOBIAP, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por 
+          la puntuación de TCI-R en Fobia")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$FOBIAP, main = "qqplot ASP"); qqline(qqplot_ASP$FOBIAP)
+qqnorm(qqplot_ASO$FOBIAP, main = "qqplot ASO"); qqline(qqplot_ASO$FOBIAP)
+
+# Con test de Anderson-Darling, al ver que existen muchos datos repetidos
+# veremos si existe normalidad
+ad.test(qqplot_ASP$FOBIAP); ad.test(qqplot_ASO$FOBIAP)
+```
+
+Con una diferencia entre los grupos de `r abs(round(FOBIAP[1, 3] - FOBIAP[2, 3], 2))`, el grupo ASP obtiene una puntuación de `r HOSTILP[1, 3]` mientras que ASO obtiene `r FOBIAP[2, 3]`. Los datos no siguen una distribución normal en ninguno de los grupos.
+
+Al no haber una distribución normal de los datos, se recurre a un test no paramétrico, test U de Mann-Whitney. 
+
+```{r FOBIAP_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(FOBIAP~GRUPO, dataplot, FUN = mean)
+
+# test U de Mann-Whitney para testear medias
+# que se encuentra integrada en 
+# wilcox.test() cuando se indica que no están pareadas
+(resultado <- wilcox.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2]), 
+         alternative = "two.sided", paired = FALSE, exact = FALSE))
+```
+
+Podemos ver que el p-valor del test paramétrico t-student es de `r round(resultado$p.value, 3)`, superior a 0.05. **No existen diferencias estadísticamente significativas entre los grupos ASP y ASO en la valoración de la hostilidad en el test SCL-90.** Conviene recordad que no se ha podido calcular exactamente el valor-p de forma exacta debido a la repetición de los datos.
+
+### **SLC-90, Variable:** `r psicopatologia_variables[8, 1]`.
+
+Esta variable evalúa la paranoia, comportamientos paranoides fundamentalmente en tanto desórdenes del pensamiento: pensamiento proyectivo, suspicacia, temor a la pérdida de autonomía.  
+
+```{r PARANP_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(PARANP <- pacientes %>% 
+  select(GRUPO, PARANP) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, PARANP)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, PARANP)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, PARANP)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = PARANP, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por 
+          la puntuación de TCI-R en paranoia")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$PARANP, main = "qqplot ASP"); qqline(qqplot_ASP$PARANP)
+qqnorm(qqplot_ASO$PARANP, main = "qqplot ASO"); qqline(qqplot_ASO$PARANP)
+
+# Con test de Anderson-Darling, al ver que existen muchos datos repetidos
+# veremos si existe normalidad
+ad.test(qqplot_ASP$PARANP); ad.test(qqplot_ASO$PARANP)
+```
+
+Con una diferencia entre los grupos de `r abs(round(PARANP[1, 3] - PARANP[2, 3], 2))`, el grupo ASP obtiene una puntuación de `r PARANP[1, 3]` mientras que ASO obtiene `r PARANP[2, 3]`. Los datos siguen una distribución normal en ambos grupos.
+
+Al haber una distribución normal, evaluaremos si las varianzas son iguales, y en caso de serlas, realizaremos un test t-student para comparar las medias. 
+
+```{r PARANP_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(PARANP~GRUPO, dataplot, FUN = mean)
+
+# test t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+Podemos ver que el p-valor del test paramétrico t-student es de `r round(resultado$p.value, 3)`, superior a 0.05. **No existen diferencias estadísticamente significativas entre los grupos ASP y ASO en la valoración de la paranoia en el test SCL-90.**
+
+### **SLC-90, Variable:** `r psicopatologia_variables[9, 1]`.
+
+Esta variable evalúa el psicoticismo, que representa el constructo en tanto dimensión contínua de la experiencia humana. Incluye síntomas referidos a estados de soledad, estilo de vida esquizoide, alucinaciones y control del pensamiento.  
+
+```{r PSICOTP_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(PSICOTP <- pacientes %>% 
+  select(GRUPO, PSICOTP) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, PSICOTP)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, PSICOTP)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, PSICOTP)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = PSICOTP, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por 
+          la puntuación de TCI-R en psicoticismo")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$PSICOTP, main = "qqplot ASP"); qqline(qqplot_ASP$PSICOTP)
+qqnorm(qqplot_ASO$PSICOTP, main = "qqplot ASO"); qqline(qqplot_ASO$PSICOTP)
+
+# Con test de Shapiro-Wills
+shapiro.test(qqplot_ASP$PSICOTP); shapiro.test(qqplot_ASO$PSICOTP)
+```
+
+Con una diferencia entre los grupos de `r abs(round(PSICOTP[1, 3] - PSICOTP[2, 3], 2))`, el grupo ASP obtiene una puntuación de `r PSICOTP[1, 3]` mientras que ASO obtiene `r PSICOTP[2, 3]`. Los datos siguen una distribución normal en ambos grupos.
+
+Al haber una distribución normal, evaluaremos si las varianzas son iguales, y en caso de serlas, realizaremos un test t-student para comparar las medias. 
+
+```{r PSICOTP_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(PSICOTP~GRUPO, dataplot, FUN = mean)
+
+# test t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+Podemos ver que el p-valor del test paramétrico t-student es de `r round(resultado$p.value, 3)`, superior a 0.05. **No existen diferencias estadísticamente significativas entre los grupos ASP y ASO en la valoración de la psicoticismo en el test SCL-90.**
+
+### **SLC-90, Variable:** `r psicopatologia_variables[10, 1]`.
+
+Esta variable evalúa el severidad global, que es un muy buen indicador del nivel actual de la severidad del malestar del paciente. Combina el número de síntomas reconocidos como presentes con la intensidad del malestar percibido.
+
+```{r GSI_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(GSI <- pacientes %>% 
+  select(GRUPO, GSI) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, GSI)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, GSI)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, GSI)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = GSI, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por 
+          la puntuación de TCI-R en severidad global")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$GSI, main = "qqplot ASP"); qqline(qqplot_ASP$GSI)
+qqnorm(qqplot_ASO$GSI, main = "qqplot ASO"); qqline(qqplot_ASO$GSI)
+
+# Con test de Shapiro-Wills
+shapiro.test(qqplot_ASP$GSI); shapiro.test(qqplot_ASO$GSI)
+```
+
+El grupo ASP obtiene una puntuación de `r GSI[1, 3]` mientras que ASO obtiene `r PSICOTP[2, 3]`. Los datos siguen una distribución normal en ambos grupos.
+
+Al haber una distribución normal, evaluaremos si las varianzas son iguales, y en caso de serlas, realizaremos un test t-student para comparar las medias. 
+
+```{r GSI_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(GSI~GRUPO, dataplot, FUN = mean)
+
+# test t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+El p-valor del test paramétrico t-student es superior al nivel de significancia, (`r round(resultado$p.value, 3)`). **No existen diferencias estadísticamente significativas entre los grupos ASP y ASO en la valoración de la severidad global en el test SCL-90.**
+
+### **SLC-90, Variable:** `r psicopatologia_variables[11, 1]`.
+
+Esta variable evalúa el indice de malestar positivo o STDI, que pretende evaluar el estilo de respuesta indicando si la persona tiende a exagerar o a minimizar los malestares que lo aquejan. 
+
+```{r PSDI_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(PSDI <- pacientes %>% 
+  select(GRUPO, PSDI) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, PSDI)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, PSDI)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, PSDI)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = PSDI, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por 
+          la puntuación de TCI-R en PSDI")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$PSDI, main = "qqplot ASP"); qqline(qqplot_ASP$PSDI)
+qqnorm(qqplot_ASO$PSDI, main = "qqplot ASO"); qqline(qqplot_ASO$PSDI)
+
+# Con test de Shapiro-Wills
+shapiro.test(qqplot_ASP$PSDI); shapiro.test(qqplot_ASO$PSDI)
+```
+
+Con una diferencia entre los grupos de `r abs(round(PSDI[1, 3] - PSDI[2, 3], 2))`, el grupo ASP obtiene una puntuación de `r PSDI[1, 3]` mientras que ASO obtiene `r PSDI[2, 3]`. Los datos siguen una distribución normal en ambos grupos.
+
+Al haber una distribución normal, evaluaremos si las varianzas son iguales, y en caso de serlas, realizaremos un test t-student para comparar las medias. 
+
+```{r PSDI_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(PSDI~GRUPO, dataplot, FUN = mean)
+
+# test t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+Podemos ver que el p-valor del test paramétrico t-student es de `r round(resultado$p.value, 3)`, muy superior a 0.05. **No existen diferencias estadísticamente significativas entre los grupos ASP y ASO en la valoración del malestar positivo por el test SLC-90.**
+
+### **BIS, Variable:** `r psicopatologia_variables[12, 1]`.
+
+Esta variable evalúa la impulsividad cognitiva según la escala de impulsividad de Barert, en que se trata de medir la impulsividad por captación de la atención e inestabilidad cognitiva.
+
+```{r BIScognitiva_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(BIScognitiva <- pacientes %>% 
+  select(GRUPO, BIScognitiva) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, BIScognitiva)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, BIScognitiva)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, BIScognitiva)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = BIScognitiva, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por 
+          la puntuación de BIS cognitiva")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$BIScognitiva, main = "qqplot ASP"); qqline(qqplot_ASP$BIScognitiva)
+qqnorm(qqplot_ASO$BIScognitiva, main = "qqplot ASO"); qqline(qqplot_ASO$BIScognitiva)
+
+# Con test de Anderson-Darling, debido a la repeticiones de datos
+ad.test(qqplot_ASP$BIScognitiva); ad.test(qqplot_ASO$BIScognitiva)
+```
+
+Con una diferencia entre los grupos de `r abs(round(BIScognitiva[1, 3] - BIScognitiva[2, 3], 2))`, el grupo ASP obtiene una puntuación de `r BIScognitiva[1, 3]` mientras que ASO obtiene `r BIScognitiva[2, 3]`. Los datos siguen una distribución normal en ambos grupos.
+
+Al haber una distribución normal, evaluaremos si las varianzas son iguales, y en caso de serlas, realizaremos un test t-student para comparar las medias.
+
+```{r BIScognitiva_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(BIScognitiva~GRUPO, dataplot, FUN = mean)
+
+# test t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+Podemos ver que el p-valor del test paramétrico t-student es de `r round(resultado$p.value, 3)`, muy superior a 0.05. **No existen diferencias estadísticamente significativas entre los grupos ASP y ASO en la valoración de la impulsividad cognitiva a través del test BIS.**
+
+### **BIS, Variable:** `r psicopatologia_variables[13, 1]`.
+
+Esta variable evalúa la impulsividad motora según la escala de impulsividad de Barert, en que se trata de medir la impulsividad por persistencia y movimiento o inquietud motora.
+
+```{r BISmotor_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(BISmotor <- pacientes %>% 
+  select(GRUPO, BISmotor) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, BISmotor)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, BISmotor)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, BISmotor)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = BISmotor, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por 
+          la puntuación de BIS motora")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$BISmotor, main = "qqplot ASP"); qqline(qqplot_ASP$BISmotor)
+qqnorm(qqplot_ASO$BISmotor, main = "qqplot ASO"); qqline(qqplot_ASO$BISmotor)
+
+# Con test de Anderson-Darling, debido a la repeticiones de datos
+ad.test(qqplot_ASP$BISmotor); ad.test(qqplot_ASO$BISmotor)
+```
+
+Con una diferencia entre los grupos de `r abs(round(BISmotor[1, 3] - BISmotor[2, 3], 2))`, el grupo ASP obtiene una puntuación de `r BISmotor[1, 3]` mientras que ASO obtiene `r BISmotor[2, 3]`. Los datos siguen una distribución normal en ambos grupos.
+
+Al haber una distribución normal, evaluaremos si las varianzas son iguales, y en caso de serlas, realizaremos un test t-student para comparar las medias.
+
+```{r BISmotor_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(BISmotor~GRUPO, dataplot, FUN = mean)
+
+# test t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+Podemos ver que el p-valor del test paramétrico t-student es de `r round(resultado$p.value, 3)`, inferior a 0.05, por lo que tenemos suficientes eivdencias para rechazar la hipótesis nula. 
+
+**Existen diferencias estadísticamente significativas entre los grupos ASP y ASO en la valoración de la impulsividad motora a través del test BIS.**
+
+### **BIS, Variable:** `r psicopatologia_variables[14, 1]`.
+
+Esta variable evalúa la impulsividad no planeada según la escala de impulsividad de Barert, en que se trata de medir la impulsividad por falta de autocontrol y complejidad cognitiva.
+
+```{r BISnoplaneada_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(BISnoplaneada <- pacientes %>% 
+  select(GRUPO, BISnoplaneada) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, BISnoplaneada)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, BISnoplaneada)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, BISnoplaneada)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = BISnoplaneada, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por 
+          la puntuación de BIS no planificada")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$BISnoplaneada, main = "qqplot ASP"); qqline(qqplot_ASP$BISnoplaneada)
+qqnorm(qqplot_ASO$BISnoplaneada, main = "qqplot ASO"); qqline(qqplot_ASO$BISnoplaneada)
+
+# Con test de Anderson-Darling, debido a la repeticiones de datos
+ad.test(qqplot_ASP$BISnoplaneada); ad.test(qqplot_ASO$BISnoplaneada)
+```
+
+Con una diferencia entre los grupos de `r abs(round(BISnoplaneada[1, 3] - BISnoplaneada[2, 3], 2))`, el grupo ASP obtiene una puntuación de `r BISnoplaneada[1, 3]` mientras que ASO obtiene `r BISnoplaneada[2, 3]`. Los datos siguen una distribución normal en ambos grupos.
+
+Al haber una distribución normal, evaluaremos si las varianzas son iguales, y en caso de serlas, realizaremos un test t-student para comparar las medias.
+
+```{r BISnoplaneada_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(BISnoplaneada~GRUPO, dataplot, FUN = mean)
+
+# test t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+Podemos ver que el p-valor del test paramétrico t-student es de `r round(resultado$p.value, 3)`, superior a 0.05, por lo que tenemos suficientes eivdencias para rechazar la hipótesis nula. 
+
+**No existen diferencias estadísticamente significativas entre los grupos ASP y ASO en la valoración de la impulsividad motora a través del test BIS.**
+
+### **BIS, Variable:** `r psicopatologia_variables[15, 1]`.
+
+Esta variable evalúa el total del test BIS.
+
+```{r TotalBIS_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(TotalBIS <- pacientes %>% 
+  select(GRUPO, TotalBIS) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, TotalBIS)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>%
+  select(GRUPO, TotalBIS)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>%
+  select(GRUPO, TotalBIS)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = TotalBIS, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por 
+          la puntuación total de BIS")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$TotalBIS, main = "qqplot ASP"); qqline(qqplot_ASP$TotalBIS)
+qqnorm(qqplot_ASO$TotalBIS, main = "qqplot ASO"); qqline(qqplot_ASO$TotalBIS)
+
+# Con test de Shapiro-Wills
+shapiro.test(qqplot_ASP$TotalBIS); shapiro.test(qqplot_ASO$TotalBIS)
+```
+
+Con una diferencia entre los grupos de `r abs(round(TotalBIS[1, 3] - TotalBIS[2, 3], 2))`, el grupo ASP obtiene una puntuación de `r TotalBIS[1, 3]` mientras que ASO obtiene `r TotalBIS[2, 3]`. Los datos siguen una distribución normal en ambos grupos.
+
+Al haber una distribución normal, evaluaremos si las varianzas son iguales, y en caso de serlas, realizaremos un test t-student para comparar las medias.
+
+```{r TotalBIS_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(TotalBIS~GRUPO, dataplot, FUN = mean)
+
+# test t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+Podemos ver que el p-valor del test paramétrico t-student es de `r round(resultado$p.value, 3)`, superior a 0.05, por lo que tenemos suficientes eivdencias para rechazar la hipótesis nula. 
+
+**No existen diferencias estadísticamente significativas entre los grupos ASP y ASO en la valoración de la puntutación total en el indice de impulsividad de Barret.**
+
+### **ECS, Variable:** `r psicopatologia_variables[16, 1]`.
+
+En el test ECS o escala de compulsividad sexual, medimos el nivel de compulsividad sexual de los pacientes, en cada grupo. La variable que trataremos el la total, donde se obtiene la puntuación total del test. 
+
+En el análisis de esta variable se tendrá que tener en cuenta que existen datos no disponibles.
+
+```{r TOTALECS_descriptiva}
+# total de datos NA y por grupo
+total <- prop.table(table(is.na(pacientes %>% 
+        select(TOTALECS))))
+ASP <- prop.table(table(is.na(pacientes %>%  
+                                filter(GRUPO == "1") %>%
+        select(TOTALECS))))
+ASO <- prop.table(table(is.na(pacientes %>%  filter(GRUPO == "2") %>%
+        select(TOTALECS))))
+tabla <- round(rbind(total, ASP, ASO) * 100, 2)
+
+# seleccionamos los datos y creamos una tabla resumen
+(TOTALECS <- pacientes %>% 
+  select(GRUPO, TOTALECS) %>% na.omit() %>%
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% na.omit() %>%
+  select(GRUPO, TOTALECS)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>% na.omit() %>%
+  select(GRUPO, TOTALECS)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>% na.omit() %>%
+  select(GRUPO, TOTALECS)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = TOTALECS, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por 
+          la puntuación total de ESC")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$TOTALECS, main = "qqplot ASP"); qqline(qqplot_ASP$TOTALECS)
+qqnorm(qqplot_ASO$TOTALECS, main = "qqplot ASO"); qqline(qqplot_ASO$TOTALECS)
+
+# Con test de Shapiro-Wills
+shapiro.test(qqplot_ASP$TOTALECS); shapiro.test(qqplot_ASO$TOTALECS)
+```
+
+Vemos una presencia de datos no disponible del total de ECS del `r tabla[1, 2]`% en el total de pacientes, con un `r tabla[2, 2]`% en ASP y `r tabla[3, 2]`% en ASO.
+
+Con una diferencia entre los grupos de `r abs(round(TOTALECS[1, 3] - TOTALECS[2, 3], 2))`, el grupo ASP obtiene una puntuación de `r TOTALECS[1, 3]` mientras que ASO obtiene `r TOTALECS[2, 3]`. Los datos siguen una distribución normal en ambos grupos.
+
+Al haber una distribución normal, evaluaremos si las varianzas son iguales, y en caso de serlas, realizaremos un test t-student para comparar las medias.
+
+```{r TOTALECS_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(TOTALECS~GRUPO, dataplot, FUN = mean)
+
+# test t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+Podemos ver que el p-valor del test paramétrico t-student es de `r round(resultado$p.value, 3)`, superior a 0.05, por lo que tenemos suficientes eivdencias para rechazar la hipótesis nula. 
+
+**No existen diferencias en la puntuación total de ECS entre los grupos de pacientes.**
+
+### **ECS, Variable:** `r psicopatologia_variables[17, 1]`.
+
+En el test ECS o escala de compulsividad sexual, medimos el nivel de compulsividad sexual a través de la inteferencia que provoca en la vida de los pacientes.
+
+En el análisis de esta variable se tendrá que tener en cuenta que existen datos no disponibles.
+
+```{r INTER_descriptiva}
+# total de datos NA y por grupo
+total <- prop.table(table(is.na(pacientes %>% 
+        select(INTER))))
+ASP <- prop.table(table(is.na(pacientes %>%  
+                                filter(GRUPO == "1") %>%
+        select(INTER))))
+ASO <- prop.table(table(is.na(pacientes %>%  filter(GRUPO == "2") %>%
+        select(INTER))))
+tabla <- round(rbind(total, ASP, ASO) * 100, 2)
+
+# seleccionamos los datos y creamos una tabla resumen
+(INTER <- pacientes %>% 
+  select(GRUPO, INTER) %>% na.omit() %>%
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% na.omit() %>%
+  select(GRUPO, INTER)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>% na.omit() %>%
+  select(GRUPO, INTER)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>% na.omit() %>%
+  select(GRUPO, INTER)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = INTER, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por 
+          la puntuación en inteferencia de ESC")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$INTER, main = "qqplot ASP"); qqline(qqplot_ASP$INTER)
+qqnorm(qqplot_ASO$INTER, main = "qqplot ASO"); qqline(qqplot_ASO$INTER)
+
+# Con test de Shapiro-Wills
+shapiro.test(qqplot_ASP$INTER); shapiro.test(qqplot_ASO$INTER)
+```
+
+Vemos una presencia de datos no disponible del total de ECS del `r tabla[1, 2]`% en el total de pacientes, con un `r tabla[2, 2]`% en ASP y `r tabla[3, 2]`% en ASO.
+
+Con una diferencia entre los grupos de `r abs(round(INTER[1, 3] - INTER[2, 3], 2))`, el grupo ASP obtiene una puntuación de `r INTER[1, 3]` mientras que ASO obtiene `r INTER[2, 3]`. Los datos siguen una distribución normal en ambos grupos.
+
+Al haber una distribución normal, evaluaremos si las varianzas son iguales, y en caso de serlas, realizaremos un test t-student para comparar las medias.
+
+```{r INTER_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(INTER~GRUPO, dataplot, FUN = mean)
+
+# test t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+Podemos ver que el p-valor del test paramétrico t-student es de `r round(resultado$p.value, 3)`, superior a 0.05, por lo que tenemos suficientes eivdencias para rechazar la hipótesis nula.
+
+**No hay diferencias significativas entre grupos de pacientes a través de la puntuación en interferencia del test ECS.**
+
+### **ECS, Variable:** `r psicopatologia_variables[18, 1]`.
+
+En el test ECS o escala de compulsividad sexual, medimos el nivel de fallo de control de impulsos.
+
+En el análisis de esta variable se tendrá que tener en cuenta que existen datos no disponibles.
+
+```{r FALLOIMP_descriptiva}
+# total de datos NA y por grupo
+total <- prop.table(table(is.na(pacientes %>% 
+        select(FALLOIMP))))
+ASP <- prop.table(table(is.na(pacientes %>%  
+                                filter(GRUPO == "1") %>%
+        select(FALLOIMP))))
+ASO <- prop.table(table(is.na(pacientes %>%  filter(GRUPO == "2") %>%
+        select(FALLOIMP))))
+(tabla <- round(rbind(total, ASP, ASO) * 100, 2))
+
+# seleccionamos los datos y creamos una tabla resumen
+(FALLOIMP <- pacientes %>% 
+  select(GRUPO, FALLOIMP) %>% na.omit() %>%
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% na.omit() %>%
+  select(GRUPO, FALLOIMP)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>% na.omit() %>%
+  select(GRUPO, FALLOIMP)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>% na.omit() %>%
+  select(GRUPO, FALLOIMP)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = FALLOIMP, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por la puntuación 
+          en fallo de control de impulso de ESC")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$FALLOIMP, main = "qqplot ASP"); qqline(qqplot_ASP$FALLOIMP)
+qqnorm(qqplot_ASO$FALLOIMP, main = "qqplot ASO"); qqline(qqplot_ASO$FALLOIMP)
+
+# Con test de Shapiro-Wills
+shapiro.test(qqplot_ASP$FALLOIMP); shapiro.test(qqplot_ASO$FALLOIMP)
+```
+
+Vemos una presencia de datos no disponible del total de ECS del `r tabla[1, 2]`% en el total de pacientes, con un `r tabla[2, 2]`% en ASP y `r tabla[3, 2]`% en ASO.
+
+Con una diferencia entre los grupos de `r abs(round(FALLOIMP[1, 3] - FALLOIMP[2, 3], 2))`, el grupo ASP obtiene una puntuación de `r FALLOIMP[1, 3]` mientras que ASO obtiene `r FALLOIMP[2, 3]`. Los datos siguen una distribución normal en ambos grupos.
+
+Al haber una distribución normal, evaluaremos si las varianzas son iguales, y en caso de serlas, realizaremos un test t-student para comparar las medias.
+
+```{r FALLOIMP_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(FALLOIMP~GRUPO, dataplot, FUN = mean)
+
+# test t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+Podemos ver que el p-valor del test paramétrico t-student es de `r round(resultado$p.value, 3)`, superior a 0.05, por lo que tenemos suficientes eivdencias para rechazar la hipótesis nula.
+
+**No hay diferencias significativas entre grupos de pacientes a través de la puntuación en fallo de control de impulsos en el test ECS.**
+
+### **ECS, Variable:** `r psicopatologia_variables[19, 1]`.
+
+En el test de estado de ansiedad medimos el estado de ansiedad o angustia de los pacientes, en particular, analizamos la ansidad como estado en los pacientes en esta variable.
+
+```{r AE_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(AE <- pacientes %>% 
+  select(GRUPO, AE) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, AE)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>% 
+  select(GRUPO, AE)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>% 
+  select(GRUPO, AE)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = AE, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por 
+          la puntuación en inteferencia de ESC")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$AE, main = "qqplot ASP"); qqline(qqplot_ASP$AE)
+qqnorm(qqplot_ASO$AE, main = "qqplot ASO"); qqline(qqplot_ASO$AE)
+
+# Con test de Shapiro-Wills
+shapiro.test(qqplot_ASP$AE); shapiro.test(qqplot_ASO$AE)
+```
+
+Con una diferencia entre los grupos de `r abs(round(AE[1, 3] - AE[2, 3], 2))`, el grupo ASP obtiene una puntuación de `r FALLOIMP[1, 3]` mientras que ASO obtiene `r AE[2, 3]`. Los datos siguen una distribución normal en ambos grupos.
+
+Al haber una distribución normal, evaluaremos si las varianzas son iguales, y en caso de no serlas, realizaremos un test Welch-t para comparar las medias.
+
+```{r AE_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(AE~GRUPO, dataplot, FUN = mean)
+
+# test Welch-t
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2]), var.equal = FALSE))
+```
+
+Podemos ver que el p-valor del test paramétrico t-student es de `r round(resultado$p.value, 3)`, superior a 0.05, por lo que tenemos suficientes eivdencias para rechazar la hipótesis nula.
+
+**No hay diferencias significativas entre grupos de pacientes a través de la puntuación en el test de ansiedad como estado.**
+
+### **ECS, Variable:** `r psicopatologia_variables[20, 1]`.
+
+En el test de estado de ansiedad medimos el estado de ansiedad o angustia de los pacientes, en particular, analizamos la ansidad como rasgo en los pacientes en esta variable.
+
+```{r AR_descriptiva}
+# seleccionamos los datos y creamos una tabla resumen
+(AR <- pacientes %>% 
+  select(GRUPO, AR) %>% 
+  group_by(GRUPO) %>% 
+  summarise_each(list(minimo = min, media = mean, 
+                      mediana = median, desvia_estandar = sd,
+                      maximo = max)))
+
+# vemos las distribuciones de los datos
+# selección de los datos para el gráfico
+dataplot <- pacientes %>% 
+  select(GRUPO, AR)
+qqplot_ASP <- pacientes %>% filter(GRUPO == "1") %>% 
+  select(GRUPO, AR)
+qqplot_ASO <- pacientes %>% filter(GRUPO == "2") %>% 
+  select(GRUPO, AR)
+
+# gráfico de distribución para ambos grupos
+ggplot(dataplot, aes(x = AR, fill = as.factor(GRUPO))) +
+  geom_density(alpha = .3) + 
+  scale_fill_discrete(name = "Grupo", labels = c("ASP", "ASO")) +
+  ggtitle("Distribución de datos por 
+          la puntuación en ansidad como rasgo")
+
+# gráfico q-q
+qqnorm(qqplot_ASP$AR, main = "qqplot ASP"); qqline(qqplot_ASP$AR)
+qqnorm(qqplot_ASO$AR, main = "qqplot ASO"); qqline(qqplot_ASO$AR)
+
+# Con test de Shapiro-Wills
+shapiro.test(qqplot_ASP$AR); shapiro.test(qqplot_ASO$AR)
+```
+
+Con una diferencia entre los grupos de `r abs(round(AR[1, 3] - AR[2, 3], 2))`, el grupo ASP obtiene una puntuación de `r FALLOIMP[1, 3]` mientras que ASO obtiene `r AR[2, 3]`. Los datos siguen una distribución normal en ambos grupos.
+
+Al haber una distribución normal, evaluaremos si las varianzas son iguales, y en caso de serlas, realizaremos un test t-student para comparar las medias.
+
+```{r AR_test_varianza_contraste}
+# test de F de Snedecor para testear varianzas
+(fsnedecor <- var.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+
+# veamos las medias de los grupos
+aggregate(AR~GRUPO, dataplot, FUN = mean)
+
+# test t-student
+(resultado <- t.test(unlist(dataplot[dataplot$GRUPO == "1", 2]),
+         unlist(dataplot[dataplot$GRUPO == "2", 2])))
+```
+
+Podemos ver que el p-valor del test paramétrico t-student es de `r round(resultado$p.value, 3)`, superior a 0.05, por lo que tenemos suficientes eivdencias para rechazar la hipótesis nula.
+
+**No hay diferencias significativas entre grupos de pacientes a través de la puntuación en el test de ansiedad como rasgo.**
+
+### **Modelo de regresión en SCL-90.**
+
+Crearemos a continuación un modelo de regresión lineal con las dimensiones del test SCL-90, el cual, recordemos, mide 11 dimensiones para valorar el estado psicológico del paciente.
+
+```{r SLC-90_modelo_regresion}
+# selección de datos
+lmod_data <- pacientes %>%
+  select(GRUPO, SOMATP:PSDI)
+
+# normalización de los datos
+# centralizamos datos
+lmod_data[, 2:8] <- apply(lmod_data[, 2:8], 2, 
+                          function(y) (y - min(y)) / (max(y) - min(y)))
+
+# creamos el modelo de regresión
+lmod <- lm(GRUPO ~ ., lmod_data)
+
+# resumen del modelo
+(resumen <- summary(lmod))
+```
+
+Vemos primero que tenemos un $r^2$ bastante bajo, del orden de `r round(resumen$r.squared, 3)`, con un p-valor por debajo de 0.05, por lo que sería estadísticamente significativo. No obstante, si vemos cada uno de las variables, a excepción de ansiedad e interceptor, los demás no son significativos. Tenemos significancia individual parcial y al haber 6 variables, no sabemos cuales son importantes para el modelo, por lo que deberíamos seleccionar. Además, también es importante fijarse que valores adoptan las variables, las cuales son bajos. Podemos tener problemas a autocorrelación. Cosa que deberemos analizar tras hacer la selección de variables previas.
+
+Primero seleccionaremos variables con el Akaike information criterion (AIC). Primero veremos con un gráfico cual es el número de predictores más idóneo, para después con el comando *regsubsets* seleccionaremos las variables.
+
+```{r SLC-90_AIC_seleccion_numero_variables}
+# con regsubsets extraemos los valores de los residuos
+rs <- summary(regsubsets(GRUPO ~ ., 
+                         data = lmod_data, nvmax = 11))
+
+# AIC para ver cuantos predictores tienen menor valor AIC
+AIC <- 45* log(rs$rss /45) + (2:12) *2
+plot(AIC ~ I(1:11), ylab="AIC", xlab="Number of Predictors", main = "AIC")
+```
+
+Vemos que lo ideal sería con 2, 3 y hasta con 4 variables. veamos que variables serían esas.
+
+```{r SLC-90_AIC_seleccion_variables_2}
+# veamos que variables podemos seleccionar
+rs
+```
+
+Tenemos que con 2 variables, las mejores variables son OBSESP y ANSIEP. Con un modelo de 3 variables: OBSESP, DEPRESP y ANSIEP. Finalmente, con 4 variables: OBSESP, DEPRESP, ANSIEP y PSDI.
+
+Creamos los modelos con 2, 3 y 4 para ver los resultados.
+
+```{r SLC-90_modelos_alternativos_reducidos}
+# modelos reducidos de 2, 3, y 4.
+lmod_2v <- lm(GRUPO ~ OBSESP + ANSIEP, lmod_data)
+lmod_3v <- lm(GRUPO ~ OBSESP + DEPRESP + ANSIEP, lmod_data)
+lmod_4v <- lm(GRUPO ~ OBSESP + DEPRESP + ANSIEP + PSDI, lmod_data)
+
+# a ver que nos dicen los modelos
+summary(lmod_2v)
+summary(lmod_3v)
+summary(lmod_4v)
+
+# veamos autocorrelaciones de las cuatro variables
+corr_var <- pacientes %>%
+  select(OBSESP, DEPRESP, ANSIEP, PSDI)
+cor(corr_var)
+# vemos autocorrelaciones
+
+# probamos con un test Durbin-Watson
+dwtest(lmod_2v); dwtest(lmod_3v); dwtest(lmod_4v)
+```
+
+Como era de esperar, el mejor modelo esde 2 variables, aunque su $r^2$ es bastante bajo. Además vemos problemas de autocorrelación en los tres modelos alternativos que presentamos, con un valor-p superior al 0.05. Así que probaremos a generar un *Generalized Least Squares* o como se conoce en castellano, estimación de **mínimos cuadrados generalizados**, ya que con la autocorrelación que se presenta, nuestro modelo de mínimos cuadrados ordinarios puede ser engañoso.
+
+```{r SLC-90_GLS}
+# GLS para tres modelos reducidos y el total
+gls_total <- gls(GRUPO ~ ., lmod_data)
+gls_2v <- gls(GRUPO ~ OBSESP + ANSIEP, lmod_data)
+gls_3v <- gls(GRUPO ~ OBSESP + DEPRESP + ANSIEP, lmod_data)
+gls_4v <- gls(GRUPO ~ OBSESP + DEPRESP + ANSIEP + PSDI, lmod_data)
+
+# resumen de los modelos
+sgls_t <- summary(gls_total)
+sgls_2v <- summary(gls_2v)
+sgls_3v <- summary(gls_3v)
+sgls_4v <- summary(gls_4v)
+
+# veamos los valores AIC
+c(total = sgls_t$AIC, 
+  variables2 = sgls_2v$AIC, 
+  variables3 = sgls_3v$AIC, 
+  variables4 = sgls_4v$AIC)
+```
+
+Realizando GLS con los tres modelos reducidos, escogeremos el que menor valor AIC tenga, pues es el que más conviene según la bibliografía consultada (*8*). Vemos que el modelo de 2 variables es el más adecuado. Veamos que nos dice:
+
+```{r RESUMEN_SLC-90_modelo_final}
+sgls_2v
+```
+
+Recordemos que al aplicar la fórmula, el valor cercano a 1 acerca a ASP, mientras que el valor 2 acerca a ASO. No existe valor control, pues no tenemos datos aún.
+
+Otro punto a tener en consideración es la validez de este sistema, ya que SLC-90 fue diseñada con un total de variables, no con la selección de unas de ellas y extraer conclusiones de variables aisladas.
+
+### **Análisis de componentes princiaples en psicopatología.**
+
+Ahora realizaremos una reducción de dimensiones de todas las variables que están incluídas en los test de psicopatología usados.
+
+```{r APC_seleccion_datos}
+# selección de los datos, omitiendo datos faltantes
+APC_psico <- pacientes %>% na.omit() %>%
+  select(psicopatologia_variables$Variable) 
+# ¿cuantas muestras nos quedan?
+(muestra <- nrow(APC_psico))
+
+# centralizamos datos
+APC_psico <- scale(APC_psico, center = TRUE)
+```
+
+Debido a los datos faltantes por ECS, vemos reducida nuestra muestra a `r muestra` pacientes.
+
+```{r APC_psicopatologia}
+# realizamos el análisis de componentes principales
+pca_prcomp <- prcomp(APC_psico)
+
+# vemos que porcentaje de la variación de los datos explica cada componente
+(resumen <- summary(pca_prcomp))
+```
+
+Vemos que la variabilidad de los datos en PC1 es del `r round(resumen$importance[2, 1]*100, 2)`% y del `r round(resumen$importance[2, 2]*100, 2)`% en PC2. Unos porcentajes pobres.
+
+Vamos a graficar el resultado.
+
+```{r grafico_APC}
+# graficamos la APC para ver que variables tienen más importancia
+pca <- PCA(APC_psico, scale.unit = TRUE, ncp = 2)
+
+# resumen del APC
+(resumen <- summary(pca))
+```
+
+Las variables que teóricamente más explican la división de los datos en dos dimensiones son GSI, DEPRESP y ANSIEP, aunque las diferencias con el resto no son muy altas.
+
+Volvemos a intentar aumentando la muestra, eliminando los datos ECS, los cuales tienen datos NA.
+
+```{r ACP_muestra_ampliada}
+# selección de los datos, omitiendo datos faltantes
+APC_psico <- pacientes %>%
+  select(psicopatologia_variables$Variable, 
+         -TOTALECS, -INTER, -FALLOIMP) 
+# ¿cuantas muestras nos quedan?
+(muestra <- nrow(APC_psico))
+
+# centralizamos datos
+APC_psico <- scale(APC_psico, center = TRUE)
+
+# realizamos el análisis de componentes principales
+pca_2_prcomp <- prcomp(APC_psico)
+
+# vemos que porcentaje de la variación de los datos explica cada componente
+(resumen <- summary(pca_2_prcomp))
+
+# graficamos la APC para ver que variables tienen más importancia
+pca_2 <- PCA(APC_psico, scale.unit = TRUE, ncp = 2)
+
+# resumen del APC
+summary(pca_2)
+``` 
+
+Vemos que la variabilidad de los datos en PC1 es del `r round(resumen$importance[2, 1]*100, 2)`% y del `r round(resumen$importance[2, 2]*100, 2)`% en PC2. Unos porcentajes algo mejores.
+
+Además, con la muestra aumenta, lo que significa que obviamos los datos que nos proporciona la escala de impulsividad de Barret, obtenemos que las variables más significativas son GSI, ANSIEP y PSICOTP, pero con pocas diferencias con el resto.
+
+Ahora, vamos a clasificar los datos que tenemos con el método de distancia euclídia, a ver si podemos apreciar dos grupo separados claramente.
+
+```{r arbol_clasificacion}
+# datos de las distancias y su clasificación de paciente
+arbol_data <- pca_2_prcomp$x
+row.names(arbol_data) <- pacientes$GRUPO
+
+# método single
+plot(hclust(dist(arbol_data), method="single"))
+# método complete
+plot(hclust(dist(arbol_data), method="complete"))
+# método single
+plot(hclust(dist(arbol_data), method="average"))
+```
+
+No ha sido posible clasificar correctamente (o hacer coincidir la clasificación con el diagnóstico) por ninguno de los métodos siguiendo una reducción de dimensiones con análisis de componentes principales.
+
+Volvemos a probar con un último método, método Ward.
+
+```{r metodo_ward}
+# realizamos el análisis jerárquico aglomerativo
+cluster.pca <- HCPC(pca_2, graph = FALSE)
+
+
+# ahora representamos
+fviz_dend(cluster.pca, 
+          cex = 0.7,                     
+          palette = "jco",               
+          rect = TRUE, rect_fill = TRUE, 
+          rect_border = "jco",           
+          labels_track_height = 0.8      
+          )
+
+# veamos cual grupo entre en cual
+# clasificación del modelo por paciente
+numero_paciente <- row.names(cluster.pca$call$X)
+names(numero_paciente) <- cluster.pca$call$X$clust
+
+# clasificación por diagnóstico
+diagnostico <- pacientes %>% select(GRUPO) %>% 
+  mutate(orden = 1:71) %>% data.frame()
+
+# cruzamos listas clasificatorias
+grupo_1 <- diagnostico[names(numero_paciente) == "1", 1]
+grupo_2 <- diagnostico[names(numero_paciente) == "2", 1]
+grupo_3 <- diagnostico[names(numero_paciente) == "3", 1]
+rbind(grupo_1 = table(grupo_1), 
+      grupo_2 =table(grupo_2),
+      grupo_3 = table(grupo_3))
+```
+
+Podemos ver que se forman 3 grupos, por dos grupos que se han diagnosticado. Cruzando las tablas de ambos no vemos diferencias destacables. Es muy posible que con la reducciones de dimensiones con las variables de los test de psicopatología no sea posible establecer una clasificaciçon similar a la que nos ha proporcionado el diagnótico por profesionales.
+
+# **Referencias:**
+
+*1. Greenwood, P.E., Nikulin, M.S. (1996) A guide to chi-squared testing. Wiley, New York. ISBN 047155779X.*
+
+*2.Fisher RA (1934) Statistical methods for research workers, 5th edn. Oliver & Boyd, Edinburgh*
+
+*3.Shapiro, S. S.; Wilk, M. B. (1965). "An analysis of variance test for normality (complete samples)". Biometrika. 52 (3–4): 591–611. doi:10.1093/biomet/52.3-4.591. JSTOR 2333709. MR 0205384. p. 593*
+
+*4. Stephens, M. A. (1974). "EDF Statistics for Goodness of Fit and Some Comparisons". Journal of the American Statistical Association. 69: 730–737.*
+
+*5.Wilcoxon-Mann-Whitney or t-test? On assumptions for hypothesis tests and multiple interpretations of decision rules, Michael P.Fay and Michael A.Proschan.*
+
+*6.The Wilcoxon-Mann-Whitney test under scrutiny, Fagerland MW, Sandvik L.*
+
+*7.Jyh-Jiuan Lin, Ching-Hui Chang, Nabendu Pal. A Revisit to Contingency Table and Tests of Independence: Bootstrap is Preferred to Chi-Square Approximations as Well as Fisher’s Exact Test. Journal of Biopharmaceutical Statistics 25(3). June 2014.*
+
+*8.Model Selection and Multi-model Inference: A Practical Information-theoretic Approach (Burnham and Anderson, 2004), particularly on page 62 (section 2.2)*
